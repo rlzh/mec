@@ -1,0 +1,4 @@
+{
+    "python.linting.pylintEnabled": true,
+    "python.pythonPath": "/Users/rlzh/.virtualenvs/ece657a/bin/python"
+}
