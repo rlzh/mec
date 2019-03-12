@@ -84,13 +84,13 @@ def get_start_from(csv_name, save_incr=100):
 
 
 # SPOTIFY DATASET
-# spotify_data = pd.read_csv("spotify/song_data.csv")
-# spotify_info = pd.read_csv("spotify/song_info.csv")
-# spotify_info = spotify_info.drop("song_name", axis=1)
-# spotify_df = pd.concat([spotify_data, spotify_info], axis=1)
-# spotify_result = fetch_lyrics(spotify_df, "song_name", "artist_name",
-#                               "audio_valence", "energy", "spotify_data.csv", -1,
-#                               get_start_from("spotify_data.csv"))
+spotify_data = pd.read_csv("spotify/song_data.csv")
+spotify_info = pd.read_csv("spotify/song_info.csv")
+spotify_info = spotify_info.drop("song_name", axis=1)
+spotify_df = pd.concat([spotify_data, spotify_info], axis=1)
+spotify_result = fetch_lyrics(spotify_df, "song_name", "artist_name",
+                              "audio_valence", "energy", "spotify_data.csv", -1,
+                              get_start_from("spotify_data.csv"))
 
 
 # # DEEZER DATASET
