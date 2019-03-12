@@ -14,7 +14,7 @@ def clean(csv_path):
     df = pd.read_csv(csv_path, dtype=object)
     start_rows = df.shape[0]
     print()
-    print("Cleaning for {}...".format(csv_path))
+    print("Cleaning {}...".format(csv_path))
     # print nan count
     print("Missing: \n{}".format(df.isna().sum()))
     # remove any row with nan value(s)
@@ -53,8 +53,9 @@ def clean(csv_path):
                 remove_indices.append(i)
                 continue
             # clear punctuations (i.e. '!"#$%&\()*+,-./:;<=>?@[\\]^_`{|}~')
-            df.lyrics[i].translate(str.maketrans(
-                empty_str, empty_str, punctuations))
+            df.lyrics[i] = df.lyrics[i].translate(
+                str.maketrans(empty_str, empty_str, punctuations)
+            )
     print("Outliers detected based on tags: {}".format(len(remove_indices)))
     df.drop(index=remove_indices, inplace=True)
     df.reset_index(drop=True, inplace=True)
