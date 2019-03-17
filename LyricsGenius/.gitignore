@@ -1,0 +1,26 @@
+# macOS
+*.DS_Store
+
+# API credentials
+*.ini
+
+# May not want to commit lyrics text files
+*.txt
+*.json
+
+# Jupyter
+/Notebooks
+.ipynb_checkpoints/
+
+# Test files
+.cache/
+
+# Python module things
+*.pyc
+
+# Python cache stuff
+*.egg-info
+__pycache__
+dist
+build
+.idea
