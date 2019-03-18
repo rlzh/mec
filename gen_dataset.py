@@ -2,9 +2,21 @@ import pandas as pd
 import numpy as np
 import lyricsgenius
 import progressbar
+import re
+import string
 
 ACCESS_TOKEN = "u330dU6EonyHdWwl1_3PxPgbCStdO_4lHFU6GGSQ-DPBHfTphtfkVdm4WfyLUcug"
 genius = lyricsgenius.Genius(ACCESS_TOKEN)
+genius.excluded_terms = ["(Remix)", "(Live)"]
+genius.skip_non_songs = True
+
+
+# test
+# s = genius.search_song("I miss you", "blink-182")
+# print(s.artist)
+# print(s.title)
+
+SAVE_INCR = 100
 
 
 SONG_IDX = 0
@@ -12,22 +24,30 @@ ARTIST_IDX = 1
 VAL_IDX = 2
 AROUS_IDX = 3
 LYRICS_IDX = 4
+FOUND_SONG_IDX = 5
+FOUND_ARTIST_IDX = 6
+
 
 columns = [
-    "song",
-    "artist",
-    "valence",
-    "arousal",
-    "lyrics"
+    'song',
+    'artist',
+    'valence',
+    'arousal',
+    'lyrics',
+    'found_song',
+    'found_artist',
 ]
 
 
-def fetch_lyrics(df, song_col, artist_col, valence_col, arousal_col, csv_name, n_songs=-1, start_from=0):
+def fetch_lyrics(dataset_name, df, song_col, artist_col, valence_col, arousal_col, csv_name, n_songs=-1, start_from=0):
 
     print("Fetching lyrics for {} dataset".format(csv_name))
 
+    # create log file for errors
+    permission = 'w' if start_from == 0 else 'a'
+    f = open('{}_error_log.txt'.format(dataset_name), permission)
     # create result data frame
-    result = np.empty(shape=(df.shape[0], 5), dtype=object)
+    result = np.empty(shape=(df.shape[0], 7), dtype=object)
     result_df = pd.DataFrame(result, columns=columns)
 
     # load previous results if not starting from 1st
@@ -39,11 +59,14 @@ def fetch_lyrics(df, song_col, artist_col, valence_col, arousal_col, csv_name, n
     missing = 0
     space = ' '
     line_break = '\n'
+    # regex pattern to remove unnecessary tags from song title (e.g. - Remastered Version)
+    pattern = '(-.*(Remaster(ed)?|Mix|Version|Acoustic).*)|(\(?((F|f)eat|(A|a)coustic).*)'
+    punctuations_space = string.punctuation + space
 
     # fetch song lyrics from genius
     for i in progressbar.progressbar(range(start_from, search_range)):
         print()
-        song_name = df[song_col][i]
+        song_name = re.sub(pattern, '', df[song_col][i]).strip()
         artist = df[artist_col][i]
         result_df.iloc[i, SONG_IDX] = song_name
         result_df.iloc[i, ARTIST_IDX] = artist
@@ -55,32 +78,56 @@ def fetch_lyrics(df, song_col, artist_col, valence_col, arousal_col, csv_name, n
         try:
             song = genius.search_song(song_name, artist)
         except:
-            print("exception caught!")
+            pass
 
         if song != None:
             lyrics = song.lyrics.replace(line_break, space)
-            result_df.iloc[i, LYRICS_IDX] = lyrics
+            found_artist = song.artist.lower().strip()
+            found_artist = found_artist.replace(u'\xa0', u' ')
+            found_song_name = song.title.lower().strip()
+            found_song_name = found_song_name.replace(punctuations_space, '')
+            found_song_name = found_song_name.replace(u'\xa0', u' ')
+            artist_lower = artist.lower().strip()
+            song_name_lower = song_name.lower().strip()
+            song_name_lower = song_name_lower.replace(punctuations_space, '')
+            # validate search result based on artist and song title
+            if (found_artist in artist_lower or artist_lower in found_artist) and (found_song_name in song_name_lower or song_name_lower in found_song_name):
+                result_df.iloc[i, LYRICS_IDX] = lyrics
+                result_df.iloc[i, FOUND_SONG_IDX] = song.title
+                result_df.iloc[i, FOUND_ARTIST_IDX] = str(song.artist)
+            else:
+                err = "Invalid result for '{}' by {}. Found '{}' by {} instead\n".format(
+                    song_name, artist, song.title, song.artist)
+                print(err)
+                f.write(err)
+                missing += 1
         else:
+            err = "No result for '{}' by {}\n".format(song_name, artist)
+            f.write(err)
             missing += 1
 
-        # save progress every 100 songs
-        if i % 100 == 0:
+        # save progress every SAVE_INCR songs
+        if i % SAVE_INCR == 0:
             result_df.to_csv(csv_name, index=False)
+            f.flush()
 
     # save to file
     result_df.to_csv(csv_name, index=False)
     print("Finished fetching lyrics ({} out of {})".format(
         n_songs - missing, search_range))
     print()
+
+    # close error log file
+    f.close()
     return result_df
 
 
-def get_start_from(csv_name, save_incr=100):
+def get_start_from(csv_name):
     # returns the first index of row that is all NaN
     prev = pd.read_csv(csv_name)
     na = prev.isna().all(axis=1)
     last = na[na == True].index[0]
-    return last - (last % save_incr)
+    return last - (last % SAVE_INCR)
 
 
 # SPOTIFY DATASET
@@ -88,17 +135,32 @@ spotify_data = pd.read_csv("spotify/song_data.csv")
 spotify_info = pd.read_csv("spotify/song_info.csv")
 spotify_info = spotify_info.drop("song_name", axis=1)
 spotify_df = pd.concat([spotify_data, spotify_info], axis=1)
-spotify_result = fetch_lyrics(spotify_df, "song_name", "artist_name",
-                              "audio_valence", "energy", "spotify_data.csv", -1,
-                              get_start_from("spotify_data.csv"))
+spotify_result = fetch_lyrics(
+    'spotify',
+    spotify_df,
+    "song_name",
+    "artist_name",
+    "audio_valence",
+    "energy",
+    "spotify_data.csv",
+    -1,
+    # get_start_from("spotify_data.csv")
+)
 
 
-# # DEEZER DATASET
+# DEEZER DATASET
 deezer_df = pd.read_csv("deezer/test.csv")
 deezer_df = deezer_df.append(pd.read_csv(
     "deezer/train.csv"), ignore_index=True)
 deezer_df = deezer_df.append(pd.read_csv(
     "deezer/validation.csv"), ignore_index=True)
-
-deezer_result = fetch_lyrics(deezer_df, "track_name", "artist_name",
-                             "valence", "arousal", "deezer_data.csv", -1)
+deezer_result = fetch_lyrics(
+    'deezer',
+    deezer_df,
+    "track_name",
+    "artist_name",
+    "valence",
+    "arousal",
+    "deezer_data.csv",
+    -1
+)
