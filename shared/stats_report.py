@@ -40,6 +40,7 @@ def get_class_info(csv_path):
     return class_distrib
 
 
+# debug function
 def print_song(df, i):
     print()
     print("song: '{}' by {}".format(df.song[i], df.artist[i]))

@@ -139,7 +139,7 @@ spotify_result = fetch_lyrics(
     const.GEN_SPOTIFY,
     const.GEN_SPOTIFY_LOG,
     -1,
-    # get_start_from(const.GEN_SPOTIFY_DATA)
+    # get_start_from(const.GEN_SPOTIFY)
 )
 
 
@@ -159,5 +159,5 @@ deezer_result = fetch_lyrics(
     GEN_DEEZER,
     GEN_DEEZER_LOG,
     -1,
-    # get_start_from(const.GEN_SPOTIFY_DATA)
+    # get_start_from(const.GEN_DEEZER)
 )
