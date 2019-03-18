@@ -35,6 +35,18 @@ def clean(csv_path):
     df.drop(index=remove_indices, inplace=True)
     df.reset_index(drop=True, inplace=True)
 
+    # remove songs based with lyric word count >= limit
+    limit = 500
+    print("Detecting outliers based on word count >= {}...".format(limit))
+    remove_indices = []
+    for i in pbar.progressbar(range(len(df.lyrics))):
+        words = df.lyrics[i].split(' ')
+        if len(words) >= limit:
+            remove_indices.append(i)
+    print("Outliers detected based on word count: {}".format(len(remove_indices)))
+    df.drop(index=remove_indices, inplace=True)
+    df.reset_index(drop=True, inplace=True)
+
     # remove any song with lyrics that do not have special lyric tags (e.g. [VERSE 1], [CHORUS], etc.)
     print("Detecting outliers based on tags...")
     pattern = "(\[|\{).{1,50}(\]|\})"
@@ -45,6 +57,7 @@ def clean(csv_path):
     for i in pbar.progressbar(range(len(df.lyrics))):
         df.lyrics[i] = df.lyrics[i].lower()
         if re.match(pattern, df.lyrics[i]) == None:
+            # print("{} by {}".format(df.song[i], df.artist[i]))
             remove_indices.append(i)
         else:
             # clear tags & leading/trailing spaces
@@ -83,10 +96,29 @@ def clean(csv_path):
 
 def preproc(df, csv_path):
     ''' Dataset proprocessing & save to csv_path'''
-
-    # todo:
-    # - create bag-of-words feature column
-    # - create emotion class label (i.e. Y) based on arousal & valence
+    # create emotion class label (i.e. Y) based on arousal & valence
+    y = np.empty(shape=(df.shape[0],))
+    va_list = pd.concat([df.valence, df.arousal], axis=1).values
+    # valence and arousal range may not be in [-1,1] so use z-score to normalize here
+    va_list = StandardScaler().fit_transform(va_list)
+    # Quad 1: V > 0 & A >=0 -> Happy
+    # Quad 2: V <= 0 & A > 0 -> Angry
+    # Quad 3: V < 0 & A <= 0 -> Sad
+    # Quad 4: V >= 0 & A < 0 -> Relaxed
+    for i in pbar.progressbar(range(va_list.shape[0])):
+        v = float(va_list[i, 0])
+        a = float(va_list[i, 1])
+        print("{}, {}".format(v, a))
+        if v > 0 and a >= 0:
+            y[i] = 1
+        elif v <= 0 and a > 0:
+            y[i] = 2
+        elif v < 0 and a <= 0:
+            y[i] = 3
+        elif v >= 0 and a < 0:
+            y[i] = 4
+    y_df = pd.DataFrame(y, columns=['y'])
+    df = pd.concat([df, y_df], axis=1)
 
     # save as csv (don't include indices in .csv)
     df.to_csv(csv_path, index=False)
