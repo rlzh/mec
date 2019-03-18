@@ -4,20 +4,14 @@ import lyricsgenius
 import progressbar
 import re
 import string
+import const
 
 ACCESS_TOKEN = "u330dU6EonyHdWwl1_3PxPgbCStdO_4lHFU6GGSQ-DPBHfTphtfkVdm4WfyLUcug"
 genius = lyricsgenius.Genius(ACCESS_TOKEN)
 genius.excluded_terms = ["(Remix)", "(Live)"]
 genius.skip_non_songs = True
 
-
-# test
-# s = genius.search_song("I miss you", "blink-182")
-# print(s.artist)
-# print(s.title)
-
 SAVE_INCR = 100
-
 
 SONG_IDX = 0
 ARTIST_IDX = 1
@@ -39,13 +33,13 @@ columns = [
 ]
 
 
-def fetch_lyrics(dataset_name, df, song_col, artist_col, valence_col, arousal_col, csv_name, n_songs=-1, start_from=0):
+def fetch_lyrics(dataset_name, df, song_col, artist_col, valence_col, arousal_col, csv_name, err_log_name, n_songs=-1, start_from=0):
 
     print("Fetching lyrics for {} dataset".format(csv_name))
 
     # create log file for errors
     permission = 'w' if start_from == 0 else 'a'
-    f = open('{}_error_log.txt'.format(dataset_name), permission)
+    f = open(err_log_name, permission)
     # create result data frame
     result = np.empty(shape=(df.shape[0], 7), dtype=object)
     result_df = pd.DataFrame(result, columns=columns)
@@ -131,8 +125,8 @@ def get_start_from(csv_name):
 
 
 # SPOTIFY DATASET
-spotify_data = pd.read_csv("spotify/song_data.csv")
-spotify_info = pd.read_csv("spotify/song_info.csv")
+spotify_data = pd.read_csv(const.SPOTIFY_DATA)
+spotify_info = pd.read_csv(const.SPTOFY_INFO)
 spotify_info = spotify_info.drop("song_name", axis=1)
 spotify_df = pd.concat([spotify_data, spotify_info], axis=1)
 spotify_result = fetch_lyrics(
@@ -142,18 +136,19 @@ spotify_result = fetch_lyrics(
     "artist_name",
     "audio_valence",
     "energy",
-    "spotify_data.csv",
+    const.GEN_SPOTIFY,
+    const.GEN_SPOTIFY_LOG,
     -1,
-    # get_start_from("spotify_data.csv")
+    # get_start_from(const.GEN_SPOTIFY_DATA)
 )
 
 
 # DEEZER DATASET
-deezer_df = pd.read_csv("deezer/test.csv")
+deezer_df = pd.read_csv(const.DEEZER_TEST)
 deezer_df = deezer_df.append(pd.read_csv(
-    "deezer/train.csv"), ignore_index=True)
+    const.DEEZER_TRAIN), ignore_index=True)
 deezer_df = deezer_df.append(pd.read_csv(
-    "deezer/validation.csv"), ignore_index=True)
+    const.DEEZER_VALID), ignore_index=True)
 deezer_result = fetch_lyrics(
     'deezer',
     deezer_df,
@@ -161,6 +156,8 @@ deezer_result = fetch_lyrics(
     "artist_name",
     "valence",
     "arousal",
-    "deezer_data.csv",
-    -1
+    GEN_DEEZER,
+    GEN_DEEZER_LOG,
+    -1,
+    # get_start_from(const.GEN_SPOTIFY_DATA)
 )

@@ -4,6 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import progressbar as pbar
+import const
 from sklearn.preprocessing import StandardScaler
 from langdetect import detect
 
@@ -16,7 +17,7 @@ def clean(csv_path):
     print()
     print("Cleaning {}...".format(csv_path))
     # print nan count
-    print("Missing: \n{}".format(df.isna().sum()))
+    print("Missing per col: \n{}".format(df.isna().sum()))
     # remove any row with nan value(s)
     df.dropna(inplace=True)
     df.reset_index(drop=True, inplace=True)
@@ -35,18 +36,6 @@ def clean(csv_path):
     df.drop(index=remove_indices, inplace=True)
     df.reset_index(drop=True, inplace=True)
 
-    # remove songs based with lyric word count >= limit
-    limit = 500
-    print("Detecting outliers based on word count >= {}...".format(limit))
-    remove_indices = []
-    for i in pbar.progressbar(range(len(df.lyrics))):
-        words = df.lyrics[i].split(' ')
-        if len(words) >= limit:
-            remove_indices.append(i)
-    print("Outliers detected based on word count: {}".format(len(remove_indices)))
-    df.drop(index=remove_indices, inplace=True)
-    df.reset_index(drop=True, inplace=True)
-
     # remove any song with lyrics that do not have special lyric tags (e.g. [VERSE 1], [CHORUS], etc.)
     print("Detecting outliers based on tags...")
     pattern = "(\[|\{).{1,50}(\]|\})"
@@ -56,20 +45,52 @@ def clean(csv_path):
     remove_indices = []
     for i in pbar.progressbar(range(len(df.lyrics))):
         df.lyrics[i] = df.lyrics[i].lower()
-        if re.match(pattern, df.lyrics[i]) == None:
-            # print("{} by {}".format(df.song[i], df.artist[i]))
+        # if re.match(pattern, df.lyrics[i]) == None:
+        #     # print("{} by {}".format(df.song[i], df.artist[i]))
+        #     remove_indices.append(i)
+        # else:
+        # clear tags & leading/trailing spaces
+        df.lyrics[i] = re.sub(pattern, empty_str, df.lyrics[i]).strip()
+        if len(df.lyrics[i]) == 0:
             remove_indices.append(i)
-        else:
-            # clear tags & leading/trailing spaces
-            df.lyrics[i] = re.sub(pattern, empty_str, df.lyrics[i]).strip()
-            if len(df.lyrics[i]) == 0:
-                remove_indices.append(i)
-                continue
-            # clear punctuations (i.e. '!"#$%&\()*+,-./:;<=>?@[\\]^_`{|}~')
-            df.lyrics[i] = df.lyrics[i].translate(
-                str.maketrans(empty_str, empty_str, punctuations)
-            )
+            continue
+        # clear punctuations (i.e. '!"#$%&\()*+,-./:;<=>?@[\\]^_`{|}~')
+        df.lyrics[i] = df.lyrics[i].translate(
+            str.maketrans(empty_str, empty_str, punctuations)
+        )
     print("Outliers detected based on tags: {}".format(len(remove_indices)))
+    df.drop(index=remove_indices, inplace=True)
+    df.reset_index(drop=True, inplace=True)
+
+    # remove songs based with lyric word count >= limit
+    space = ' '
+    limit = 1000
+    print("Detecting outliers based on word count >= {}...".format(limit))
+    remove_indices = []
+    for i in pbar.progressbar(range(len(df.lyrics))):
+        words = df.lyrics[i].split(space)
+        if len(words) >= limit:
+            remove_indices.append(i)
+    print("Outliers detected based on word count: {}".format(len(remove_indices)))
+    df.drop(index=remove_indices, inplace=True)
+    df.reset_index(drop=True, inplace=True)
+
+    # remove songs based with lyric unique word count < thresh
+    thresh = 10
+    print("Detecting outliers based on unique word count < {}...".format(thresh))
+    remove_indices = []
+    for i in pbar.progressbar(range(len(df.lyrics))):
+        words = df.lyrics[i].split(space)
+        s = set()
+        count = 0
+        for w in words:
+            if w not in s:
+                count += 1
+                s.add(w)
+        if count < thresh:
+            remove_indices.append(i)
+    print("Outliers detected based on unique word count: {}".format(
+        len(remove_indices)))
     df.drop(index=remove_indices, inplace=True)
     df.reset_index(drop=True, inplace=True)
 
@@ -94,7 +115,7 @@ def clean(csv_path):
     return df
 
 
-def preproc(df, csv_path):
+def gen_labels(df, csv_path):
     ''' Dataset proprocessing & save to csv_path'''
     # create emotion class label (i.e. Y) based on arousal & valence
     y = np.empty(shape=(df.shape[0],))
@@ -108,7 +129,6 @@ def preproc(df, csv_path):
     for i in pbar.progressbar(range(va_list.shape[0])):
         v = float(va_list[i, 0])
         a = float(va_list[i, 1])
-        print("{}, {}".format(v, a))
         if v > 0 and a >= 0:
             y[i] = 1
         elif v <= 0 and a > 0:
@@ -126,9 +146,9 @@ def preproc(df, csv_path):
 
 
 # SPOTIFY DATASET
-df = clean("spotify_data.csv")
-preproc(df, "preproc_spotify_data.csv")
+df = clean(const.GEN_SPOTIFY)
+gen_labels(df, const.CLEAN_SPOTIFY)
 
 # DEEZER DATASET
-df = clean("deezer_data.csv")
-preproc(df, "preproc_deezer_data.csv")
+df = clean(const.GEN_DEEZER)
+gen_labels(df, const.CLEAN_DEEZER)
