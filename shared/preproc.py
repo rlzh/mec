@@ -134,20 +134,34 @@ def tfidf_vectorize(lyrics, y, ngram_range, min_df, token_pattern=r'\b\w+\b'):
     )
     X = vectorizer.fit_transform(lyrics)
     X = pd.DataFrame(X.toarray())
-    cols = [i for i in range(X.shape[0])]
+    cols = [str(i) for i in range(X.shape[1])]
     cols.append('y')
-    return pd.concat([X, y], axis=1), vectorizer
+    result = pd.concat([X, pd.DataFrame(y)], axis=1)
+    result.columns = cols
+    return result, vectorizer
 
 
-def get_class_based_data(df, class_id):
+def get_class_based_data(df, class_id, random_state=None):
     '''
     Random generate equally sized dataset for binary classifiers of specified class
     by limiting the generated dataset size to minimum across all classes in dataset.
     '''
-    size_limit = df['y'].value_counts().min()
     class_df = df.loc[df['y'] == class_id]
     non_class_df = df.loc[df['y'] != class_id]
     max_size = df['y'].value_counts().min()
     class_df = class_df.sample(n=max_size)
     non_class_df = non_class_df.sample(n=max_size)
-    return pd.concat([class_df, non_class_df])
+    if random_state != None:
+        class_df = class_df.sample(
+            n=max_size,
+            random_state=random_state
+        )
+        non_class_df = non_class_df.sample(
+            n=max_size,
+            random_state=random_state
+        )
+    class_df.y = np.full(class_df.y.shape, 1)
+    non_class_df.y = np.full(non_class_df.y.shape, -1)
+    result = pd.concat([class_df, non_class_df])
+    result.columns = df.columns
+    return result
