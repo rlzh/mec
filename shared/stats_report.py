@@ -39,6 +39,7 @@ def get_emotion_info(csv_path):
     print("valence range: [{},{}]".format(df.valence.min(), df.valence.max()))
     print("arousal range: [{},{}]".format(df.arousal.min(), df.arousal.max()))
     print(class_distrib)
+    print()
     return class_distrib
 
 
