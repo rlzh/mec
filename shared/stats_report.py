@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import const
+import matplotlib.pyplot as plt
 
 
 def get_lyric_wordcount(csv_path):
@@ -54,9 +55,46 @@ def print_song(df, i):
     print("y: {}".format(df.y[i]))
 
 
+deezer_df = pd.read_csv(const.CLEAN_DEEZER)
+spotify_df = pd.read_csv(const.CLEAN_SPOTIFY)
+
 spotify_wc, spotify_uc = get_lyric_wordcount(const.CLEAN_SPOTIFY)
 spotify_class_distrib = get_emotion_info(const.CLEAN_SPOTIFY)
 
 
 deezer_wc, deezer_uc = get_lyric_wordcount(const.CLEAN_DEEZER)
 deezer_class_distrib = get_emotion_info(const.CLEAN_DEEZER)
+
+# word count hist
+spotify_word_count = plt.subplot(1, 1, 1)
+spotify_word_count.hist(spotify_wc, alpha=0.7, bins=100)
+
+deezer_word_count = plt.subplot(1, 1, 1)
+deezer_word_count.hist(deezer_wc, alpha=0.7, bins=100)
+
+# unique word count hist
+plt.figure()
+spotify_unique_count = plt.subplot(1, 1, 1)
+spotify_unique_count.hist(spotify_uc, alpha=0.7, bins=100)
+
+deezer_unique_count = plt.subplot(1, 1, 1)
+deezer_unique_count.hist(deezer_uc, alpha=0.7, bins=100)
+
+# class distrib scatter plot
+plt.figure()
+spotify_val_arous = plt.subplot(1, 1, 1)
+spotify_val_arous.scatter(spotify_df.valence, spotify_df.arousal, alpha=0.7)
+
+plt.figure()
+deezer_val_arous = plt.subplot(1, 1, 1)
+deezer_val_arous.scatter(deezer_df.valence, deezer_df.arousal, alpha=0.7)
+
+# class distrib hist
+plt.figure()
+spotify_class_hist = plt.subplot(1, 1, 1)
+spotify_class_hist.hist(spotify_df.y, alpha=0.7)
+
+deezer_class_hist = plt.subplot(1, 1, 1)
+deezer_class_hist.hist(deezer_df.y, alpha=0.7)
+
+plt.show()
