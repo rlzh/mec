@@ -67,27 +67,6 @@ def get_top_tfidf_ngrams(vectorized, vectorizer, n=10, scaled=False):
     return top_n
 
 
-def tfidf_vectorize(lyrics, y, ngram_range=(1, 1), min_df=1, max_df=1.0, stop_words=None, max_features=None):
-    '''
-    Uses TF-IDF vectorizer to convert lyric data to numeric features.
-    Returns resulting data frame.
-    '''
-    vectorizer = TfidfVectorizer(
-        ngram_range=ngram_range,
-        min_df=min_df,
-        max_df=max_df,
-        stop_words=stop_words,
-        max_features=max_features,
-    )
-    X = vectorizer.fit_transform(lyrics)
-    result = pd.DataFrame(X.toarray())
-    cols = [str(i) for i in range(X.shape[1])]
-    cols.append('y')
-    result = pd.concat([result, pd.DataFrame(y)], axis=1)
-    result.columns = cols
-    return result, vectorizer
-
-
 def get_class_based_data(df, class_id, random_state=None, include_other_classes=True, limit_size=True):
     '''
     Random generate equally sized dataset for binary classifiers of specified class
