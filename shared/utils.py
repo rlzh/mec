@@ -3,6 +3,18 @@ import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.preprocessing import MinMaxScaler
+from nltk.corpus import stopwords
+import nltk
+
+
+def get_stop_words():
+    nltk.download('stopwords')
+    stop_words = set(stopwords.words('english'))
+    f = open("stopwords.txt", 'r')
+    for l in f:
+        if len(l.strip()) > 0:
+            stop_words.add(l.strip())
+    return stop_words
 
 
 def get_word_counts(lyrics, print=False):
@@ -56,8 +68,10 @@ def get_emotion_counts(df, print=False):
 
 def get_top_tfidf_ngrams(vectorized, vectorizer, n=10, scaled=False):
     feature_array = np.array(vectorizer.get_feature_names())
-    vectorized_sorted = np.sort(vectorized.toarray().flatten())[::-1]
-    vectorized_sorting = np.argsort(vectorized.toarray()).flatten()[::-1]
+    vectorized_sorted = np.sort(vectorized.toarray().sum(axis=0))[::-1]
+    vectorized_sorting = np.argsort(vectorized.toarray().sum(axis=0))[::-1]
+    # vectorized_sorted = np.sort(vectorized.toarray().flatten())[::-1]
+    # vectorized_sorting = np.argsort(vectorized.toarray()).flatten()[::-1]
     top_n = feature_array[vectorized_sorting][:n]
     top_n_scores = vectorized_sorted[:n].reshape(-1, 1)
     if scaled == True:
@@ -65,6 +79,10 @@ def get_top_tfidf_ngrams(vectorized, vectorizer, n=10, scaled=False):
     top_n_scores = np.add(top_n_scores, 1.0).reshape(-1,)
     top_n = dict(zip(top_n, top_n_scores))
     return top_n
+
+
+def get_top_frequent_ngrams(vectorized, vectorizer, n=10, scaled=False):
+    pass
 
 
 def get_class_based_data(df, class_id, random_state=None, include_other_classes=True, limit_size=True):
