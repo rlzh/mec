@@ -3,6 +3,17 @@ import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.preprocessing import MinMaxScaler
+from nltk.corpus import stopwords
+import nltk
+
+
+def get_stop_words():
+    nltk.download('stopwords')
+    stop_words = set(stopwords.words('english'))
+    f = open("stopwords.txt", 'r')
+    for l in f:
+        if len(l.strip()) > 0:
+            stop_words.add(l.strip())
 
 
 def get_word_counts(lyrics, print=False):

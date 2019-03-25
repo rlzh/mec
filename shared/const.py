@@ -37,3 +37,7 @@ COL_AROUSAL = "arousal"
 COL_LYRICS = "lyrics"
 COL_FOUND_SONG = "found_song"
 COL_FOUND_ARTIST = "found_artist"
+
+# implementation models
+MODEL_DIR = BASE_DIR+"/models"
+ADABOOST_MODEL_DIR = MODEL_DIR+"/adaboost"

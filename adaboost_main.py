@@ -2,7 +2,6 @@ import pandas as pd
 import datetime
 import numpy as np
 import time
-import nltk
 from shared import utils
 from shared import const
 from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier
@@ -12,24 +11,18 @@ from sklearn.manifold import Isomap, LocallyLinearEmbedding
 from sklearn.model_selection import GridSearchCV
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.pipeline import Pipeline
-
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.decomposition import TruncatedSVD
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import Normalizer
 from sklearn.svm import LinearSVC, SVC
+from sklearn.externals.joblib import load, dump
 from tempfile import mkdtemp
 from shutil import rmtree
 
-from nltk.corpus import stopwords
 
 # load stop words
-nltk.download('stopwords')
-stop_words = set(stopwords.words('english'))
-f = open("stopwords.txt", 'r')
-for l in f:
-    if len(l.strip()) > 0:
-        stop_words.add(l.strip())
+stop_words = utils.get_stop_words()
 
 
 def train_test_score(input_df):
@@ -72,43 +65,44 @@ def train_test_score(input_df):
         print(score)
 
 
-def grid_search(input_df, name, log=True):
+def grid_search(input_df, name, log=True, param_grid=None):
 
     f = open("adaboost_log.log", "a")
     if log:
         f.write("\n==== {} - {} {}====\n".format(str(datetime.datetime.now()),
                                                  name, input_df.shape))
-    tfidf__min_df = [5]  # , 10]
+    tfidf__min_df = [5, 10]
     tfidf__max_df = [1.0]
-    tfidf__ngram_range = [(1, 1)]  # , (1, 2), (1, 3)]
+    tfidf__ngram_range = [(1, 1), (1, 2), (1, 3)]
     tfidf__max_features = [None, 10000]
     tfidf__stop_words = [stop_words]  # , None]
     svd__n_comps = [30, 60, 120, 200]
-    adaboost__n_estimators = [750, 1000]
+    adaboost__n_estimators = [750, 1000, 1500]
     adaboost__base_estimator = [None]
 
-    param_space = {
-        'tfidf__min_df': tfidf__min_df,
-        # 'tfidf__max_df': tfidf__max_df,
-        'tfidf__ngram_range': tfidf__ngram_range,
-        # 'tfidf__max_features': tfidf__max_features,
-        'tfidf__stop_words': tfidf__stop_words,
-        # 'svd__n_components': svd__n_comps,
-        'adaboost__n_estimators': adaboost__n_estimators,
-        # 'adaboost__algorithm': ['SAMME.R'],
-        # 'adaboost__base_estimator': adaboost__base_estimator,
-    }
+    if param_grid == None:
+        param_grid = {
+            'tfidf__min_df': tfidf__min_df,
+            # 'tfidf__max_df': tfidf__max_df,
+            'tfidf__ngram_range': tfidf__ngram_range,
+            # 'tfidf__max_features': tfidf__max_features,
+            # 'tfidf__stop_words': tfidf__stop_words,
+            # 'svd__n_components': svd__n_comps,
+            'adaboost__n_estimators': adaboost__n_estimators,
+            # 'adaboost__algorithm': ['SAMME.R'],
+            # 'adaboost__base_estimator': adaboost__base_estimator,
+        }
     estimators = [
-        ('tfidf', TfidfVectorizer(max_features=15000)),
+        ('tfidf', TfidfVectorizer(max_features=None)),
         # ('svd', TruncatedSVD()),
         # ('normalize', Normalizer(copy=False)),
         ('adaboost', AdaBoostClassifier(n_estimators=800)),
     ]
+
     best_estimators = []
     t = time.time()
 
     for i in input_df.y.unique():
-
         print("Training classifier for Class {}...".format(i))
         t0 = time.time()
         # get dataset for current class
@@ -127,7 +121,7 @@ def grid_search(input_df, name, log=True):
             cv=10,
             verbose=1,
             iid=False,
-            param_grid=param_space,
+            param_grid=param_grid,
             # scoring='f1',
             n_jobs=3,
         )
@@ -138,10 +132,7 @@ def grid_search(input_df, name, log=True):
         # get top n-grams
         tfidf = gscv.best_estimator_.named_steps['tfidf']
         pos_tfidf = tfidf.fit_transform(df.loc[df.y == 1].lyrics.values)
-        feature_array = np.array(tfidf.get_feature_names())
-        tfidf_sorting = np.argsort(pos_tfidf.toarray()).flatten()[::-1]
-        n = 20
-        top_n = feature_array[tfidf_sorting][:n]
+        top_n = utils.get_top_tfidf_ngrams(pos_tfidf, tfidf)
         print("Top n-grams: {}".format(top_n))
         rmtree(cachedir)
         # save results to file
@@ -152,18 +143,51 @@ def grid_search(input_df, name, log=True):
             f.write("Top {} n-grams based on tfidf score: {}\n".format(n, top_n))
             f.write("Time: {}\n\n".format(time.time()-t0))
             f.flush()
-        best_estimators.append(gscv.best_esitmator_)
+        best_estimators.append(gscv.best_estimator_)
+        # save model
+        save_path = "{}/{}_{}.sav".format(const.ADABOOST_MODEL_DIR, name, i)
+        dump(gscv.best_estimator_, save_path)
     if log:
         f.write("==== Total time {} ====\n".format(time.time()-t))
     f.close()
+
     return best_estimators
+
+
+def load_models(name, classes):
+    models = {}
+    for i in classes:
+        save_path = "{}/{}_{}.sav".format(const.ADABOOST_MODEL_DIR, name, i)
+        print("Loading model from {}".format(save_path))
+        model = load(save_path)
+        models[i] = model
+    return models
 
 
 spotify_df = pd.read_csv(const.CLEAN_SPOTIFY)
 deezer_df = pd.read_csv(const.CLEAN_DEEZER)
 
-grid_search(spotify_df[:], "spotify", True)
-grid_search(deezer_df[:], "deezer", True)
+# spotify grid search
+grid_search(spotify_df[:], "spotify", log=True)
+
+
+# deezer grid search
+tfidf__min_df = [1, 5, 10]
+tfidf__max_df = [1.0]
+tfidf__ngram_range = [(1, 1), (1, 2), (1, 3)]
+tfidf__stop_words = [stop_words, None]
+svd__n_comps = [30, 60, 120, 200]
+adaboost__n_estimators = [100, 250, 500]
+adaboost__base_estimator = [None]
+param_grid = {
+    'tfidf__min_df': tfidf__min_df,
+    'tfidf__ngram_range': tfidf__ngram_range,
+    'tfidf__stop_words': tfidf__stop_words,
+    'adaboost__n_estimators': adaboost__n_estimators,
+}
+grid_search(deezer_df[:], "deezer", log=True)
+
+# spotify_models = load_models("spotify", spotify_df.y.unique())
 # grid_search(pd.concat((deezer_df, spotify_df)), "deezer-spotify", False)
 # train_test_score(deezer_df)
 # train_test_score(spotify_df)

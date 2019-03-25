@@ -13,14 +13,10 @@ from utils import get_unique_counts
 from utils import get_emotion_counts
 from utils import get_top_tfidf_ngrams
 from utils import get_class_based_data
+from utils import get_stop_words
 
 # load stop words
-nltk.download('stopwords')
-stop_words = set(stopwords.words('english'))
-f = open("stopwords.txt", 'r')
-for l in f:
-    if len(l.strip()) > 0:
-        stop_words.add(l.strip())
+stop_words = get_stop_words()
 
 
 def gen_word_clouds(csv_path, vectorizer, n=10):
