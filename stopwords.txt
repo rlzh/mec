@@ -1138,6 +1138,7 @@ z
 
 zero
 
+gotta
 gonna
 dont
 weve
@@ -1177,3 +1178,8 @@ verse
 intro
 don
 chorus
+fuck
+fuckin
+fucked
+fucking
+fucker

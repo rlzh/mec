@@ -18,6 +18,8 @@ from sklearn.decomposition import TruncatedSVD
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import Normalizer
 from sklearn.svm import LinearSVC, SVC
+from tempfile import mkdtemp
+from shutil import rmtree
 
 from nltk.corpus import stopwords
 
@@ -77,19 +79,19 @@ def grid_search(input_df, name, log=True):
         f.write("\n==== {} - {} {}====\n".format(str(datetime.datetime.now()),
                                                  name, input_df.shape))
     tfidf__min_df = [5, 10]
-    tfidf__max_df = [1.0, 0.9]
+    tfidf__max_df = [1.0]
     tfidf__ngram_range = [(1, 1), (1, 2), (1, 3)]
-    tfidf__max_features = [100, 500, 1000, 10000]
+    tfidf__max_features = [None, 10000]
     tfidf__stop_words = [stop_words, None]
-    # svd__n_comps = [30, 60, 120, 200]
-    adaboost__n_estimators = [150, 750, 1000]
+    svd__n_comps = [30, 60, 120, 200]
+    adaboost__n_estimators = [100, 750, 1000]
     adaboost__base_estimator = [None]
 
     param_space = {
         'tfidf__min_df': tfidf__min_df,
-        'tfidf__max_df': tfidf__max_df,
+        # 'tfidf__max_df': tfidf__max_df,
         'tfidf__ngram_range': tfidf__ngram_range,
-        'tfidf__max_features': tfidf__max_features,
+        # 'tfidf__max_features': tfidf__max_features,
         'tfidf__stop_words': tfidf__stop_words,
         # 'svd__n_components': svd__n_comps,
         'adaboost__n_estimators': adaboost__n_estimators,
@@ -97,17 +99,16 @@ def grid_search(input_df, name, log=True):
         # 'adaboost__base_estimator': adaboost__base_estimator,
     }
     estimators = [
-        ('tfidf', TfidfVectorizer()),
+        ('tfidf', TfidfVectorizer(max_features=15000)),
         # ('svd', TruncatedSVD()),
         # ('normalize', Normalizer(copy=False)),
         ('adaboost', AdaBoostClassifier()),
     ]
 
-    pipe = Pipeline(estimators)
-
     t = time.time()
 
     for i in input_df.y.unique():
+
         print("Training classifier for Class ({})...".format(i))
         t0 = time.time()
         # get dataset for current class
@@ -118,7 +119,8 @@ def grid_search(input_df, name, log=True):
             include_other_classes=True,
             limit_size=False,
         )
-
+        cachedir = mkdtemp()
+        pipe = Pipeline(estimators, memory=None)
         # run grid search
         gscv = GridSearchCV(
             pipe,
@@ -127,6 +129,7 @@ def grid_search(input_df, name, log=True):
             iid=False,
             param_grid=param_space,
             # scoring='f1',
+            n_jobs=3,
         )
         gscv.fit(df.lyrics.values, df.y.values.ravel())
         print("Best params: {}".format(gscv.best_params_))
@@ -137,16 +140,16 @@ def grid_search(input_df, name, log=True):
         pos_tfidf = tfidf.fit_transform(df.loc[df.y == 1].lyrics.values)
         feature_array = np.array(tfidf.get_feature_names())
         tfidf_sorting = np.argsort(pos_tfidf.toarray()).flatten()[::-1]
-        n = 10
+        n = 20
         top_n = feature_array[tfidf_sorting][:n]
         print("Top n-grams: {}".format(top_n))
-
+        rmtree(cachedir)
         # save results to file
         if log:
             f.write("Class: {}\n".format(i))
             f.write("Best params: {}\n".format(gscv.best_params_))
             f.write("Best score: {}\n".format(gscv.best_score_))
-            f.write("Top {} n-grams based on tfidf score: {}".format(n, top_n))
+            f.write("Top {} n-grams based on tfidf score: {}\n".format(n, top_n))
             f.write("Time: {}\n".format(time.time()-t0))
             f.flush()
     if log:
@@ -157,8 +160,8 @@ def grid_search(input_df, name, log=True):
 spotify_df = pd.read_csv(const.CLEAN_SPOTIFY)
 deezer_df = pd.read_csv(const.CLEAN_DEEZER)
 
-# grid_search(spotify_df[:], "spotify", True)
-# grid_search(deezer_df[:], "deezer", True)
+grid_search(spotify_df[:], "spotify", True)
+grid_search(deezer_df[:], "deezer", True)
 # grid_search(pd.concat((deezer_df, spotify_df)), "deezer-spotify", False)
 # train_test_score(deezer_df)
 # train_test_score(spotify_df)

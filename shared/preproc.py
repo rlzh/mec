@@ -219,6 +219,7 @@ def get_class_based_data(df, class_id, random_state=None, include_other_classes=
                 random_state=random_state
             )
     class_df.y = np.full(class_df.y.shape, 1)
+    result = class_df
     if include_other_classes:
         non_class_df.y = np.full(non_class_df.y.shape, -1)
         result = pd.concat([class_df, non_class_df])
