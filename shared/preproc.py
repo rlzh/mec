@@ -10,20 +10,13 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import Normalizer
 from langid.langid import LanguageIdentifier, model
 from langdetect import detect
+from utils import get_word_counts
+from utils import get_unique_counts
 
 
 def get_indices_from_unique_count_z_score(lyrics):
     print("Detecting outliers based on unique count z-score >= |3|...")
-    unique_count = np.empty(shape=(len(lyrics), 1))
-    for i in pbar.progressbar(range(len(lyrics))):
-        words = lyrics[i].split(' ')
-        s = set()
-        count = 0
-        for w in words:
-            if w not in s:
-                count += 1
-                s.add(w)
-        unique_count[i] = len(s)
+    unique_count = get_unique_counts(lyrics)
     lyrics_scores = StandardScaler().fit_transform(unique_count)
     remove_indices = np.argwhere(abs(lyrics_scores[0]) >= 3).ravel()
     print("Outliers detected based on unique count z-score: {}".format(len(remove_indices)))
@@ -90,9 +83,9 @@ def get_indices_from_word_count(lyrics, limits=(5, 1000)):
     remove_indices = []
     print("Detecting outliers based on {} < word count < {}...".format(
         limits[0], limits[1]))
+    word_counts = get_word_counts(lyrics)
     for i in pbar.progressbar(range(len(lyrics))):
-        words = lyrics[i].split(' ')
-        if len(words) > limits[1] or len(words) < limits[0]:
+        if word_counts[i] > limits[1] or word_counts[i] < limits[0]:
             remove_indices.append(i)
     print("Outliers detected based on word count: {}".format(len(remove_indices)))
     return remove_indices
@@ -102,15 +95,9 @@ def get_indices_from_unique_words(lyrics, limits=(10, 400)):
     remove_indices = []
     print("Detecting outliers based on unique {} < word count < {}...".format(
         limits[0], limits[1]))
+    unique_counts = get_unique_counts(lyrics)
     for i in pbar.progressbar(range(len(lyrics))):
-        words = lyrics[i].split(' ')
-        s = set()
-        count = 0
-        for w in words:
-            if w not in s:
-                count += 1
-                s.add(w)
-        if count < limits[0] or count > limits[1]:
+        if unique_counts[i] < limits[0] or unique_counts[i] > limits[1]:
             remove_indices.append(i)
     print("Outliers detected based on unique word count: {}".format(
         len(remove_indices)))
@@ -170,58 +157,3 @@ def get_indices_from_lang(lyrics, elligible_char_len=4, neg_prob_thresh=0.8, pos
 
     print("Outliers detected based on language: {}".format(len(remove_indices)))
     return remove_indices
-
-
-def tfidf_vectorize(lyrics, y, ngram_range=(1, 1), min_df=1, max_df=1.0, stop_words=None, max_features=None):
-    '''
-    Uses TF-IDF vectorizer to convert lyric data to numeric features.
-    Returns resulting data frame.
-    '''
-    vectorizer = TfidfVectorizer(
-        ngram_range=ngram_range,
-        min_df=min_df,
-        max_df=max_df,
-        stop_words=stop_words,
-        max_features=max_features,
-    )
-    X = vectorizer.fit_transform(lyrics)
-    result = pd.DataFrame(X.toarray())
-    cols = [str(i) for i in range(X.shape[1])]
-    cols.append('y')
-    result = pd.concat([result, pd.DataFrame(y)], axis=1)
-    result.columns = cols
-    return result, vectorizer
-
-
-def get_class_based_data(df, class_id, random_state=None, include_other_classes=True, limit_size=True):
-    '''
-    Random generate equally sized dataset for binary classifiers of specified class
-    by limiting the generated dataset size to minimum across all classes in dataset.
-    '''
-    max_size = df['y'].value_counts().min()
-    class_df = df.loc[df['y'] == class_id]
-    non_class_df = df.loc[df['y'] != class_id]
-    if limit_size == False:
-        max_size = min(len(non_class_df), len(class_df))
-
-    class_df = class_df.sample(n=max_size)
-    if include_other_classes:
-        non_class_df = non_class_df.sample(n=max_size)
-
-    if random_state != None:
-        class_df = class_df.sample(
-            n=max_size,
-            random_state=random_state
-        )
-        if include_other_classes:
-            non_class_df = non_class_df.sample(
-                n=max_size,
-                random_state=random_state
-            )
-    class_df.y = np.full(class_df.y.shape, 1)
-    result = class_df
-    if include_other_classes:
-        non_class_df.y = np.full(non_class_df.y.shape, -1)
-        result = pd.concat([class_df, non_class_df])
-    result.columns = df.columns
-    return result

@@ -3,7 +3,7 @@ import datetime
 import numpy as np
 import time
 import nltk
-from shared import preproc
+from shared import utils
 from shared import const
 from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
@@ -37,7 +37,7 @@ def train_test_score(input_df):
     for i in input_df.y.unique():
         print("Training classifier for Class ({})...".format(i))
         # get dataset for current class
-        df = preproc.get_class_based_data(
+        df = utils.get_class_based_data(
             input_df,
             i,
             random_state=np.random.seed(0),
@@ -78,13 +78,13 @@ def grid_search(input_df, name, log=True):
     if log:
         f.write("\n==== {} - {} {}====\n".format(str(datetime.datetime.now()),
                                                  name, input_df.shape))
-    tfidf__min_df = [5, 10]
+    tfidf__min_df = [5]  # , 10]
     tfidf__max_df = [1.0]
-    tfidf__ngram_range = [(1, 1), (1, 2), (1, 3)]
+    tfidf__ngram_range = [(1, 1)]  # , (1, 2), (1, 3)]
     tfidf__max_features = [None, 10000]
-    tfidf__stop_words = [stop_words, None]
+    tfidf__stop_words = [stop_words]  # , None]
     svd__n_comps = [30, 60, 120, 200]
-    adaboost__n_estimators = [100, 750, 1000]
+    adaboost__n_estimators = [750, 1000]
     adaboost__base_estimator = [None]
 
     param_space = {
@@ -102,17 +102,17 @@ def grid_search(input_df, name, log=True):
         ('tfidf', TfidfVectorizer(max_features=15000)),
         # ('svd', TruncatedSVD()),
         # ('normalize', Normalizer(copy=False)),
-        ('adaboost', AdaBoostClassifier()),
+        ('adaboost', AdaBoostClassifier(n_estimators=800)),
     ]
-
+    best_estimators = []
     t = time.time()
 
     for i in input_df.y.unique():
 
-        print("Training classifier for Class ({})...".format(i))
+        print("Training classifier for Class {}...".format(i))
         t0 = time.time()
         # get dataset for current class
-        df = preproc.get_class_based_data(
+        df = utils.get_class_based_data(
             input_df,
             i,
             random_state=np.random.seed(0),
@@ -150,11 +150,13 @@ def grid_search(input_df, name, log=True):
             f.write("Best params: {}\n".format(gscv.best_params_))
             f.write("Best score: {}\n".format(gscv.best_score_))
             f.write("Top {} n-grams based on tfidf score: {}\n".format(n, top_n))
-            f.write("Time: {}\n".format(time.time()-t0))
+            f.write("Time: {}\n\n".format(time.time()-t0))
             f.flush()
+        best_estimators.append(gscv.best_esitmator_)
     if log:
         f.write("==== Total time {} ====\n".format(time.time()-t))
     f.close()
+    return best_estimators
 
 
 spotify_df = pd.read_csv(const.CLEAN_SPOTIFY)

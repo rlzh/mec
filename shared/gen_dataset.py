@@ -23,13 +23,13 @@ FOUND_ARTIST_IDX = 6
 
 
 columns = [
-    'song',
-    'artist',
-    'valence',
-    'arousal',
-    'lyrics',
-    'found_song',
-    'found_artist',
+    const.COL_SONG,
+    const.COL_ARTIST,
+    const.COL_VALENCE,
+    const.COL_AROUSAL,
+    const.COL_LYRICS,
+    const.COL_FOUND_SONG,
+    const.COL_FOUND_ARTIST,
 ]
 
 
