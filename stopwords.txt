@@ -86,6 +86,10 @@ are
 
 arent
 
+aren
+
+weren
+
 around
 
 as
@@ -207,6 +211,10 @@ corresponding
 could
 
 couldnt
+
+couldn
+
+wouldn
 
 course
 
@@ -788,6 +796,8 @@ she
 
 should
 
+shouldn
+
 shouldnt
 
 since
@@ -1183,3 +1193,16 @@ fuckin
 fucked
 fucking
 fucker
+nigga
+wanna
+gotta
+em
+la
+ohoh
+ohohoh
+ya
+yeah
+yea
+nope
+nah
+na

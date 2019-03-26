@@ -33,17 +33,18 @@ def train_test_score(input_df):
         df = utils.get_class_based_data(
             input_df,
             i,
-            random_state=np.random.seed(0),
+            # random_state=np.random.seed(0),
             include_other_classes=True,
-            limit_size=False,
+            limit_size=True,
+            even_distrib=True,
         )
         # build vectorizer for current class
         tfidf = TfidfVectorizer(
             max_df=1.0,
-            min_df=5,
-            max_features=500,
+            min_df=1,
+            # max_features=None,
             stop_words=stop_words,
-            ngram_range=(1, 2),
+            ngram_range=(1, 1),
         )
         X_train, X_test, y_train, y_test = train_test_split(
             df.lyrics.values,
@@ -54,51 +55,23 @@ def train_test_score(input_df):
         neg_indices = np.argwhere(y_train == -1)
 
         # fit only using lyrics of positive class & transform both classes
-        pos_tfidf = tfidf.fit_transform(np.take(X_train, pos_indices).ravel())
-        neg_tfidf = tfidf.transform(np.take(X_train, neg_indices).ravel())
-        X_train = np.concatenate((pos_tfidf.toarray(), neg_tfidf.toarray()))
-        # X_train = tfidf.fit_transform(X_train.ravel())
-        clf = AdaBoostClassifier(n_estimators=750)
+        # pos_tfidf = tfidf.fit_transform(np.take(X_train, pos_indices).ravel())
+        # neg_tfidf = tfidf.transform(np.take(X_train, neg_indices).ravel())
+        # X_train = np.concatenate((pos_tfidf.toarray(), neg_tfidf.toarray()))
+        X_train = tfidf.fit_transform(X_train.ravel())
+        clf = AdaBoostClassifier(n_estimators=2000)
         clf.fit(X_train, y_train)
         X_test = tfidf.transform(X_test)
         score = clf.score(X_test, y_test)
         print(score)
 
 
-def grid_search(input_df, name, log=True, param_grid=None):
+def grid_search(input_df, name, estimators, param_grid, log=True):
 
     f = open("adaboost_log.log", "a")
     if log:
         f.write("\n==== {} - {} {}====\n".format(str(datetime.datetime.now()),
                                                  name, input_df.shape))
-    tfidf__min_df = [5, 10]
-    tfidf__max_df = [1.0]
-    tfidf__ngram_range = [(1, 1), (1, 2), (1, 3)]
-    tfidf__max_features = [None, 10000]
-    tfidf__stop_words = [stop_words]  # , None]
-    svd__n_comps = [30, 60, 120, 200]
-    adaboost__n_estimators = [750, 1000, 1500]
-    adaboost__base_estimator = [None]
-
-    if param_grid == None:
-        param_grid = {
-            'tfidf__min_df': tfidf__min_df,
-            # 'tfidf__max_df': tfidf__max_df,
-            'tfidf__ngram_range': tfidf__ngram_range,
-            # 'tfidf__max_features': tfidf__max_features,
-            # 'tfidf__stop_words': tfidf__stop_words,
-            # 'svd__n_components': svd__n_comps,
-            'adaboost__n_estimators': adaboost__n_estimators,
-            # 'adaboost__algorithm': ['SAMME.R'],
-            # 'adaboost__base_estimator': adaboost__base_estimator,
-        }
-    estimators = [
-        ('tfidf', TfidfVectorizer(max_features=None)),
-        # ('svd', TruncatedSVD()),
-        # ('normalize', Normalizer(copy=False)),
-        ('adaboost', AdaBoostClassifier(n_estimators=800)),
-    ]
-
     best_estimators = []
     t = time.time()
 
@@ -111,7 +84,8 @@ def grid_search(input_df, name, log=True, param_grid=None):
             i,
             random_state=np.random.seed(0),
             include_other_classes=True,
-            limit_size=False,
+            limit_size=True,
+            even_distrib=True,
         )
         cachedir = mkdtemp()
         pipe = Pipeline(estimators, memory=None)
@@ -132,7 +106,8 @@ def grid_search(input_df, name, log=True, param_grid=None):
         # get top n-grams
         tfidf = gscv.best_estimator_.named_steps['tfidf']
         pos_tfidf = tfidf.fit_transform(df.loc[df.y == 1].lyrics.values)
-        top_n = utils.get_top_tfidf_ngrams(pos_tfidf, tfidf)
+        top_n = utils.get_top_singular_ngrams(
+            pos_tfidf, tfidf.get_feature_names(), n=20)
         print("Top n-grams: {}".format(top_n))
         rmtree(cachedir)
         # save results to file
@@ -140,7 +115,7 @@ def grid_search(input_df, name, log=True, param_grid=None):
             f.write("Class: {}\n".format(i))
             f.write("Best params: {}\n".format(gscv.best_params_))
             f.write("Best score: {}\n".format(gscv.best_score_))
-            f.write("Top {} n-grams based on tfidf score: {}\n".format(n, top_n))
+            f.write("Top {} n-grams based on tfidf score: {}\n".format(20, top_n))
             f.write("Time: {}\n\n".format(time.time()-t0))
             f.flush()
         best_estimators.append(gscv.best_estimator_)
@@ -167,27 +142,37 @@ def load_models(name, classes):
 spotify_df = pd.read_csv(const.CLEAN_SPOTIFY)
 deezer_df = pd.read_csv(const.CLEAN_DEEZER)
 
+estimators = [
+    ('tfidf', TfidfVectorizer(stop_words=stop_words)),
+    # ('svd', TruncatedSVD()),
+    # ('normalize', Normalizer(copy=False)),
+    ('adaboost', AdaBoostClassifier(n_estimators=800)),
+]
 # spotify grid search
-grid_search(spotify_df[:], "spotify", log=True)
+param_grid = {
+    'tfidf__min_df': [1, 5],
+    'tfidf__max_df': [1.0, 0.5],
+    'tfidf__ngram_range': [(1, 1), (1, 2), (1, 3)],
+    'tfidf__max_features': [None, 1000],
+    # 'tfidf__stop_words': [stop_words],
+    'adaboost__n_estimators': [1000, 2000, 3000],
+}
+grid_search(spotify_df, "spotify", estimators, param_grid, log=True)
 
 
 # deezer grid search
-tfidf__min_df = [1, 5, 10]
-tfidf__max_df = [1.0]
-tfidf__ngram_range = [(1, 1), (1, 2), (1, 3)]
-tfidf__stop_words = [stop_words, None]
-svd__n_comps = [30, 60, 120, 200]
-adaboost__n_estimators = [100, 250, 500]
-adaboost__base_estimator = [None]
 param_grid = {
-    'tfidf__min_df': tfidf__min_df,
-    'tfidf__ngram_range': tfidf__ngram_range,
-    'tfidf__stop_words': tfidf__stop_words,
-    'adaboost__n_estimators': adaboost__n_estimators,
+    'tfidf__min_df': [1, 5, 10],
+    'tfidf__max_df': [1.0, 0.5],
+    'tfidf__ngram_range': [(1, 1), (1, 2), (1, 3)],
+    'tfidf__max_features': [None, 500],
+    # 'tfidf__stop_words': [stop_words],
+    'adaboost__n_estimators': [500, 1000, 2000],
 }
-grid_search(deezer_df[:], "deezer", log=True)
+grid_search(deezer_df, "deezer", estimators, param_grid, log=True)
 
 # spotify_models = load_models("spotify", spotify_df.y.unique())
 # grid_search(pd.concat((deezer_df, spotify_df)), "deezer-spotify", False)
 # train_test_score(deezer_df)
 # train_test_score(spotify_df)
+# train_test_score(pd.concat((deezer_df, spotify_df)))
