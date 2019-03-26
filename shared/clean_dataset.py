@@ -64,7 +64,7 @@ def clean(csv_path, word_count_range=(50, 800), unique_words_range=(20, 350)):
     return df
 
 
-def gen_labels(df, csv_path, cross_over_val=0, thresh=0, max_size=-1):
+def gen_labels(df, csv_path, cross_over_val=0, thresh=0, class_size=-1, class_distrib=None):
     ''' Dataset proprocessing & save to csv_path'''
     # create emotion class label (i.e. Y) based on arousal & valence
     y = np.empty(shape=(df.shape[0], 2))
@@ -91,16 +91,8 @@ def gen_labels(df, csv_path, cross_over_val=0, thresh=0, max_size=-1):
             y[i, 0] = 4
 
         # remove if euclidean distance below threshold
-        dist = ((v - cross_over_val)**2 +
-                (a - cross_over_val)**2)**.5
-        y[i, 1] = dist
-        remove = dist < thresh
-        # if thresh_dict:
-        #     # class based thresholding
-        #     if y[i] in thresh_dict:
-        #         class_thresh = thresh_dict[y[i]]
-        #         remove = ((v - cross_over_val)**2 +
-        #                   (a - cross_over_val)**2)**.5 < class_thresh
+        y[i, 1] = ((v - cross_over_val)**2 + (a - cross_over_val)**2)**.5
+        remove = y[i, 1] < thresh
         if remove:
             remove_indices.append(i)
 
@@ -110,20 +102,23 @@ def gen_labels(df, csv_path, cross_over_val=0, thresh=0, max_size=-1):
     df.drop(index=remove_indices, inplace=True)
     df.reset_index(drop=True, inplace=True)
 
-    if max_size > 0:
-        max_size = min(df.y.value_counts().max(), max_size)
+    if class_size > 0:
+        class_size = min(df.y.value_counts().max(), class_size)
         result = pd.DataFrame([], columns=df.columns)
         for i in df.y.unique():
             pos_df = df.loc[df.y == i]
             pos_df = pos_df.sort_values(by='dist', ascending=False)
-            if len(pos_df) > max_size:
-                rows = pos_df.iloc[:max_size]
+            distrib = 1 if i not in class_distrib else class_distrib[i]
+            required_size = int(class_size * distrib)
+            if len(pos_df) > required_size:
+                rows = pos_df.iloc[:required_size]
                 result = pd.concat([result, rows], ignore_index=True)
             else:
                 result = pd.concat([result, pos_df], ignore_index=True)
+        print("{} songs removed".format(len(df) - len(remove_indices)))
         df = result
     df = df.drop(['dist'], axis=1)
-
+    df = df.sample(frac=1)
     print("class distrib")
     print(df.y.value_counts())
     print("df shape: {}".format(df.shape))
@@ -141,13 +136,13 @@ gen_labels(
     const.CLEAN_SPOTIFY,
     cross_over_val=0.5,
     # thresh=0.2,
-    # thresh_dict={
-    #     1: 0.52,
-    #     2: 0.45,
-    #     3: 0.37,
-    #     4: 0.2,
-    # }
-    max_size=435
+    class_distrib={
+        1: 1.0,
+        2: 1.0,
+        3: 1.0,
+        4: 1.0,
+    },
+    class_size=750,
 )
 
 # DEEZER DATASET
@@ -162,5 +157,11 @@ gen_labels(
     const.CLEAN_DEEZER,
     cross_over_val=0,
     # thresh=0.75,
-    max_size=435
+    class_distrib={
+        1: 1.0,
+        2: 1.0,
+        3: 1.0,
+        4: 1.0,
+    },
+    class_size=750,
 )

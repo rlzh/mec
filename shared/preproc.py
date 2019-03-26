@@ -55,7 +55,7 @@ def get_indices_from_text_len_z_score(lyrics):
 
 
 def clean_lyric_text(lyrics):
-    pattern = "(\[.*?\])"
+    pattern = "(\[.*?\])|(\dx)"
     empty_str = ''
     punctuations = string.punctuation.replace("'", empty_str)
     for i in pbar.progressbar(range(len(lyrics))):

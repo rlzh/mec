@@ -72,33 +72,40 @@ def get_emotion_counts(df, print_=False):
     return class_distrib
 
 
-def get_top_singular_ngrams(vectorized, feature_names, n=10, scaled=False):
-    feature_names = np.array(feature_names)
+def get_top_singular_ngrams(vectorized, vectorizer, n=10):
+    feature_names = np.array(vectorizer.get_feature_names())
     vectorized_sorted = np.sort(vectorized.toarray().flatten())[::-1]
     vectorized_sorting = np.argsort(vectorized.toarray()).flatten()[::-1]
     top_n = feature_names[vectorized_sorting][:n]
-    top_n_scores = vectorized_sorted[:n].reshape(-1, 1)
-    if scaled == True:
-        top_n_scores = MinMaxScaler().fit_transform(top_n_scores)
-    top_n_scores = np.add(top_n_scores, 1.0).reshape(-1,)
+    top_n_scores = vectorized_sorted[:n].reshape(-1, )
+    # top_n_scores = np.add(top_n_scores, 1.0).reshape(-1,)
     top_n = dict(zip(top_n, top_n_scores))
     return top_n
 
 
-def get_top_total_ngrams(vectorized, feature_names, n=10, scaled=False):
-    feature_names = np.array(feature_names)
+def get_top_idf_ngrams(vectorized, vectorizer, n=10):
+    feature_names = np.array(vectorizer.get_feature_names())
+    vectorized_sorted = np.sort(vectorizer.idf_.flatten())[::-1]
+    vectorized_sorting = np.argsort(vectorizer.idf_).flatten()[::-1]
+    top_n = feature_names[vectorized_sorting][:n]
+    top_n_scores = vectorized_sorted[:n].reshape(-1, )
+    # top_n_scores = np.add(top_n_scores, 1.0).reshape(-1,)
+    top_n = dict(zip(top_n, top_n_scores))
+    return top_n
+
+
+def get_top_total_ngrams(vectorized, vectorizer, n=10):
+    feature_names = np.array(vectorizer.get_feature_names())
     vectorized_sorted = np.sort(vectorized.toarray().sum(axis=0))[::-1]
     vectorized_sorting = np.argsort(vectorized.toarray().sum(axis=0))[::-1]
     top_n = feature_names[vectorized_sorting][:n]
-    top_n_scores = vectorized_sorted[:n].reshape(-1, 1)
-    if scaled == True:
-        top_n_scores = MinMaxScaler().fit_transform(top_n_scores)
-    top_n_scores = np.add(top_n_scores, 1.0).reshape(-1,)
+    top_n_scores = vectorized_sorted[:n].reshape(-1,)
+    # top_n_scores = np.add(top_n_scores, 1.0).reshape(-1,)
     top_n = dict(zip(top_n, top_n_scores))
     return top_n
 
 
-def get_class_based_data(df, class_id, random_state=None, include_other_classes=True, limit_size=True, even_distrib=False):
+def get_class_based_data(df, class_id, random_state=None, include_other_classes=True, limit_size=True, even_distrib=True):
     '''
     Random generate equally sized dataset for binary classifiers of specified class
     by limiting the generated dataset size to minimum across all classes in dataset.
@@ -108,6 +115,7 @@ def get_class_based_data(df, class_id, random_state=None, include_other_classes=
     neg_df = df.loc[df['y'] != class_id]
 
     if limit_size == False:
+        # no limit so take max between pos & neg df
         max_size = min(len(neg_df), len(pos_df))
 
     if include_other_classes:
