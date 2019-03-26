@@ -106,8 +106,7 @@ def grid_search(input_df, name, estimators, param_grid, log=True):
         # get top n-grams
         tfidf = gscv.best_estimator_.named_steps['tfidf']
         pos_tfidf = tfidf.fit_transform(df.loc[df.y == 1].lyrics.values)
-        top_n = utils.get_top_singular_ngrams(
-            pos_tfidf, tfidf.get_feature_names(), n=20)
+        top_n = utils.get_top_idf_ngrams(pos_tfidf, tfidf, n=20)
         print("Top n-grams: {}".format(top_n))
         rmtree(cachedir)
         # save results to file
@@ -157,7 +156,7 @@ param_grid = {
     # 'tfidf__stop_words': [stop_words],
     'adaboost__n_estimators': [1000, 2000, 3000],
 }
-grid_search(spotify_df, "spotify", estimators, param_grid, log=True)
+# grid_search(spotify_df, "spotify", estimators, param_grid, log=False)
 
 
 # deezer grid search
@@ -169,10 +168,10 @@ param_grid = {
     # 'tfidf__stop_words': [stop_words],
     'adaboost__n_estimators': [500, 1000, 2000],
 }
-grid_search(deezer_df, "deezer", estimators, param_grid, log=True)
+# grid_search(deezer_df, "deezer", estimators, param_grid, log=False)
 
 # spotify_models = load_models("spotify", spotify_df.y.unique())
 # grid_search(pd.concat((deezer_df, spotify_df)), "deezer-spotify", False)
-# train_test_score(deezer_df)
-# train_test_score(spotify_df)
+train_test_score(deezer_df)
+train_test_score(spotify_df)
 # train_test_score(pd.concat((deezer_df, spotify_df)))
