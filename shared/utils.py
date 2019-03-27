@@ -18,6 +18,12 @@ def get_stop_words():
     return stop_words
 
 
+def print_song(df, i):
+    print("Song: {}".format(df.song[i].value))
+    print("Artist: {}".format(df.artist[i].value))
+    print("Lyrics: {}".format(df.lyrics[i].value))
+
+
 def get_word_counts(lyrics, print_=False):
     word_count = np.empty(shape=(len(lyrics),))
     for i in range(len(lyrics)):
@@ -40,15 +46,15 @@ def get_word_counts(lyrics, print_=False):
 def get_unique_counts(lyrics, print_=False):
     unique_count = np.empty(shape=(len(lyrics),))
     for i in range(len(lyrics)):
-        if type(lyrics[i]) is str:
-            words = lyrics[i].split(' ')
-            s = set()
-            for w in words:
-                if w not in s:
-                    s.add(w)
-                    unique_count[i] += 1
-        else:
-            unique_count[i] = 0
+        lyrics[i] = str(lyrics[i])
+    for i in range(len(lyrics)):
+        words = (lyrics[i]).split(' ')
+        s = set()
+        for w in words:
+            if w not in s:
+                s.add(w)
+                unique_count[i] += 1
+
     if print_ == True:
         print("Unique count info")
         print("min unique count: {} (id: {})".format(
@@ -57,6 +63,7 @@ def get_unique_counts(lyrics, print_=False):
             np.max(unique_count), np.argmax(unique_count)))
         print("ave unique count: {}".format(np.mean(unique_count)))
         print()
+
     return unique_count
 
 
@@ -73,10 +80,10 @@ def get_emotion_counts(df, print_=False):
     return class_distrib
 
 
-def get_top_idf_ngrams(vectorized, vectorizer, n=10):
+def get_top_idf_ngrams(vectorized, vectorizer, n=10, order=-1):
     feature_names = np.array(vectorizer.get_feature_names())
-    vectorized_sorted = np.sort(vectorizer.idf_.flatten())[::-1]
-    vectorized_sorting = np.argsort(vectorizer.idf_).flatten()[::-1]
+    vectorized_sorted = np.sort(vectorizer.idf_.flatten())[::order]
+    vectorized_sorting = np.argsort(vectorizer.idf_).flatten()[::order]
     top_n = feature_names[vectorized_sorting][:n]
     top_n_scores = vectorized_sorted[:n].reshape(-1, )
     # top_n_scores = np.add(top_n_scores, 1.0).reshape(-1,)
@@ -84,10 +91,10 @@ def get_top_idf_ngrams(vectorized, vectorizer, n=10):
     return top_n
 
 
-def get_top_total_ngrams(vectorized, vectorizer, n=10):
+def get_top_total_ngrams(vectorized, vectorizer, n=10, order=-1):
     feature_names = np.array(vectorizer.get_feature_names())
-    vectorized_sorted = np.sort(vectorized.toarray().sum(axis=0))[::-1]
-    vectorized_sorting = np.argsort(vectorized.toarray().sum(axis=0))[::-1]
+    vectorized_sorted = np.sort(vectorized.toarray().sum(axis=0))[::order]
+    vectorized_sorting = np.argsort(vectorized.toarray().sum(axis=0))[::order]
     top_n = feature_names[vectorized_sorting][:n]
     top_n_scores = vectorized_sorted[:n].reshape(-1,)
     # top_n_scores = np.add(top_n_scores, 1.0).reshape(-1,)

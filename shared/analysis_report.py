@@ -27,9 +27,10 @@ from utils import get_shared_ngrams
 stop_words = get_stop_words()
 
 
-def gen_word_cloud_grid(name, df, vectorizer, top_n_generator, n=10, print_=False):
+def gen_word_cloud_grid(name, df, vectorizer, top_n_generator, n=10, order=-1, print_=False):
     fig, axs = plt.subplots(2, 2)
-    fig.suptitle('{}: Top {} n-grams ({})'.format(name, n, type(vectorizer)))
+    fig.suptitle(
+        '{}: uni-grams per class'.format(name))
     top_n_list = [None] * 4
     for i in df.y.unique():
         class_df = get_class_based_data(
@@ -45,7 +46,8 @@ def gen_word_cloud_grid(name, df, vectorizer, top_n_generator, n=10, print_=Fals
         top_n = top_n_generator(
             vectorized,
             vectorizer,
-            n=n
+            n=n,
+            order=order,
         )
         # if print_:
         # print("Top {} for Class {}\n  {}".format(n, i, top_n))
@@ -72,7 +74,7 @@ def gen_word_cloud_grid(name, df, vectorizer, top_n_generator, n=10, print_=Fals
 
 
 def gen_within_data_cos_sim_heapmaps(name, df, max_features=1000, print_=False):
-
+    print("Max features: {}".format(max_features))
     tfidf = TfidfVectorizer(
         stop_words=stop_words,
         max_features=max_features,
@@ -91,13 +93,15 @@ def gen_within_data_cos_sim_heapmaps(name, df, max_features=1000, print_=False):
 
 
 def gen_between_class_cos_sim_heapmaps(name, df, max_features=1000, print_=False):
+    print("Max features: {}".format(max_features))
     tfidf = TfidfVectorizer(
         stop_words=stop_words,
         max_features=max_features,
         ngram_range=(1, 1),
     )
     total = 0
-    classes = [i+1 for i in range(len(df.y.unique()))]
+    classes = [i + 1 for i in range(len(df.y.unique()))]
+    count = 0
     for i in range(len(classes)):
         for j in range(i + 1, len(classes)):
             cos_sim = get_between_class_cos_similarity(
@@ -105,6 +109,11 @@ def gen_between_class_cos_sim_heapmaps(name, df, max_features=1000, print_=False
             if print_:
                 print("{}: Class {} vs {} cosine similarity: {}".format(
                     name, classes[i], classes[j], cos_sim.sum()))
+            total += cos_sim.sum()
+            count += 1
+    average = total/count
+    if print_:
+        print("{}: average cosine similarity: {}".format(name, average))
 
 
 gen_spotify_df = pd.read_csv(const.GEN_SPOTIFY)
@@ -113,7 +122,7 @@ clean_spotify_df = pd.read_csv(const.CLEAN_SPOTIFY)
 gen_deezer_df = pd.read_csv(const.GEN_DEEZER)
 clean_deezer_df = pd.read_csv(const.CLEAN_DEEZER)
 
-show = True
+show = False
 print_ = True
 
 # word clouds
@@ -133,6 +142,7 @@ spotify_top_n = gen_word_cloud_grid(
     vectorizer=tfidf,
     top_n_generator=get_top_idf_ngrams,
     n=n,
+    order=1,
     print_=print_
 )
 spotify_tfidf_shared, spotify_tfidf_unique = get_shared_ngrams(spotify_top_n)
@@ -143,38 +153,43 @@ deezer_top_n = gen_word_cloud_grid(
     vectorizer=tfidf,
     top_n_generator=get_top_idf_ngrams,
     n=n,
+    order=1,
     print_=print_
 )
 deezer_tfidf_shared, deezer_tfidf_unique = get_shared_ngrams(deezer_top_n)
 
 
-# top_n = gen_word_cloud_grid(
-#     'Spotify',
-#     clean_spotify_df,
-#     vectorizer=count,
-#     top_n_generator=get_top_total_ngrams,
-#     n=n
-# )
-# spotify_count_shared, spotify_count_unique = get_shared_ngrams(top_n)
+top_n = gen_word_cloud_grid(
+    'Spotify',
+    clean_spotify_df,
+    vectorizer=count,
+    top_n_generator=get_top_total_ngrams,
+    n=n,
+    order=-1,
+    print_=print_
+)
+spotify_count_shared, spotify_count_unique = get_shared_ngrams(top_n)
 
-# top_n = gen_word_cloud_grid(
-#     'Deezer',
-#     clean_deezer_df,
-#     vectorizer=count,
-#     top_n_generator=get_top_total_ngrams,
-#     n=n
-# )
-# deezer_count_shared, deezer_count_unique = get_shared_ngrams(top_n)
+top_n = gen_word_cloud_grid(
+    'Deezer',
+    clean_deezer_df,
+    vectorizer=count,
+    top_n_generator=get_top_total_ngrams,
+    n=n,
+    order=-1,
+    print_=print_
+)
+deezer_count_shared, deezer_count_unique = get_shared_ngrams(top_n)
 
 print()
 print("Spotify: tfidf shared={}".format(
     len(spotify_tfidf_shared)/len(spotify_tfidf_unique)))
 print("Deezer: tfidf shared={}".format(
     len(deezer_tfidf_shared)/len(deezer_tfidf_unique)))
-# print("Spotify: count shared={}".format(
-#     len(spotify_count_shared)/len(spotify_count_unique)))
-# print("Deezer: count shared={}".format(
-#     len(deezer_count_shared)/len(deezer_count_unique)))
+print("Spotify: count shared={}".format(
+    len(spotify_count_shared)/len(spotify_count_unique)))
+print("Deezer: count shared={}".format(
+    len(deezer_count_shared)/len(deezer_count_unique)))
 print()
 
 # vectorized = count.fit_transform(clean_spotify_df.lyrics.values)
@@ -192,20 +207,24 @@ print()
 # ))
 
 
-# Cosine similiarity
-max_features = 1000
+# Cosine similiarity within data
+max_features = 5000
+order = 1
 gen_within_data_cos_sim_heapmaps(
     "Spotify",
     clean_spotify_df,
     max_features=max_features,
-    print_=print_
+    print_=print_,
 )
 gen_within_data_cos_sim_heapmaps(
     "Deezer",
     clean_deezer_df,
     max_features=max_features,
-    print_=print_
+    print_=print_,
 )
+
+# Cosine similarity between class
+max_features = 5000
 gen_between_class_cos_sim_heapmaps(
     "Spotify",
     clean_spotify_df,
