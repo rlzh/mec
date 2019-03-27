@@ -118,6 +118,5 @@ plt.bar(x + 0.125, get_y(clean_deezer_df),
         width=0.25, align='center', label='deezer')
 plt.xticks(x)
 plt.legend()
-show = True
 if show:
     plt.show()
