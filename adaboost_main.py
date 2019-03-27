@@ -172,6 +172,6 @@ param_grid = {
 
 # spotify_models = load_models("spotify", spotify_df.y.unique())
 # grid_search(pd.concat((deezer_df, spotify_df)), "deezer-spotify", False)
-train_test_score(deezer_df)
+# train_test_score(deezer_df)
 train_test_score(spotify_df)
 # train_test_score(pd.concat((deezer_df, spotify_df)))
