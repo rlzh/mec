@@ -33,17 +33,17 @@ def train_test_score(input_df):
         df = utils.get_class_based_data(
             input_df,
             i,
-            # random_state=np.random.seed(0),
+            random_state=np.random.seed(0),
             include_other_classes=True,
             limit_size=True,
             even_distrib=True,
         )
         # build vectorizer for current class
         tfidf = TfidfVectorizer(
-            max_df=1.0,
-            min_df=1,
-            # max_features=None,
-            stop_words=stop_words,
+            max_df=0.5,
+            min_df=5,
+            max_features=None,
+            # stop_words=stop_words,
             ngram_range=(1, 1),
         )
         X_train, X_test, y_train, y_test = train_test_split(
@@ -172,6 +172,6 @@ param_grid = {
 
 # spotify_models = load_models("spotify", spotify_df.y.unique())
 # grid_search(pd.concat((deezer_df, spotify_df)), "deezer-spotify", False)
-# train_test_score(deezer_df)
+train_test_score(deezer_df)
 train_test_score(spotify_df)
 # train_test_score(pd.concat((deezer_df, spotify_df)))
