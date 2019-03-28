@@ -19,7 +19,7 @@ from utils import get_class_based_data
 from utils import get_stop_words
 from utils import get_within_data_cos_similarity
 from utils import get_between_class_cos_similarity
-from utils import get_shared_ngrams
+from utils import get_shared_words
 
 # load stop words
 stop_words = get_stop_words()
@@ -47,6 +47,13 @@ def gen_val_arousal_scatter(title, valence, arousal):
     plt.title(title)
     plt.xlabel("Valence")
     plt.ylabel("Arousal")
+
+
+def get_y(df):
+    y = [0] * 4
+    for i in df.y.unique():
+        y[int(i)-1] = len(df.loc[df.y == i])
+    return y
 
 
 print_ = True
@@ -98,13 +105,6 @@ gen_val_arousal_scatter(
     clean_deezer_df.valence.values,
     clean_deezer_df.arousal.values
 )
-
-
-def get_y(df):
-    y = [750] * 4
-    for i in df.y.unique():
-        y[int(i)-1] = len(df.loc[df.y == i])
-    return y
 
 
 # class distrib hist

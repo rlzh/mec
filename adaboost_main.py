@@ -7,7 +7,6 @@ from shared import const
 from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.model_selection import cross_val_score, train_test_split
-from sklearn.manifold import Isomap, LocallyLinearEmbedding
 from sklearn.model_selection import GridSearchCV
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.pipeline import Pipeline
@@ -15,55 +14,11 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.decomposition import TruncatedSVD
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import Normalizer
-from sklearn.svm import LinearSVC, SVC
 from sklearn.externals.joblib import load, dump
-from tempfile import mkdtemp
-from shutil import rmtree
 
 
 # load stop words
 stop_words = utils.get_stop_words()
-
-
-def train_test_score(input_df):
-
-    for i in input_df.y.unique():
-        print("Training classifier for Class ({})...".format(i))
-        # get dataset for current class
-        df = utils.get_class_based_data(
-            input_df,
-            i,
-            random_state=np.random.seed(0),
-            include_other_classes=True,
-            limit_size=True,
-            even_distrib=True,
-        )
-        # build vectorizer for current class
-        tfidf = TfidfVectorizer(
-            max_df=0.5,
-            min_df=5,
-            max_features=None,
-            # stop_words=stop_words,
-            ngram_range=(1, 1),
-        )
-        X_train, X_test, y_train, y_test = train_test_split(
-            df.lyrics.values,
-            df.y.values.ravel(),
-            test_size=0.1
-        )
-        pos_indices = np.argwhere(y_train == 1)
-        neg_indices = np.argwhere(y_train == -1)
-
-        # fit only using lyrics of positive class & transform both classes
-        # pos_tfidf = tfidf.fit_transform(np.take(X_train, pos_indices).ravel())
-        # neg_tfidf = tfidf.transform(np.take(X_train, neg_indices).ravel())
-        # X_train = np.concatenate((pos_tfidf.toarray(), neg_tfidf.toarray()))
-        X_train = tfidf.fit_transform(X_train.ravel())
-        clf = AdaBoostClassifier(n_estimators=2000)
-        clf.fit(X_train, y_train)
-        X_test = tfidf.transform(X_test)
-        score = clf.score(X_test, y_test)
-        print(score)
 
 
 def grid_search(input_df, name, estimators, param_grid, log=True):
@@ -108,7 +63,6 @@ def grid_search(input_df, name, estimators, param_grid, log=True):
         pos_tfidf = tfidf.fit_transform(df.loc[df.y == 1].lyrics.values)
         top_n = utils.get_top_idf_ngrams(pos_tfidf, tfidf, n=20)
         print("Top n-grams: {}".format(top_n))
-        rmtree(cachedir)
         # save results to file
         if log:
             f.write("Class: {}\n".format(i))
@@ -124,22 +78,50 @@ def grid_search(input_df, name, estimators, param_grid, log=True):
     if log:
         f.write("==== Total time {} ====\n".format(time.time()-t))
     f.close()
-
     return best_estimators
 
 
-def load_models(name, classes):
+def load_models(dataset_name, classes):
     models = {}
     for i in classes:
-        save_path = "{}/{}_{}.sav".format(const.ADABOOST_MODEL_DIR, name, i)
-        print("Loading model from {}".format(save_path))
+        save_path = "{}/{}_{}.sav".format(
+            const.ADABOOST_MODEL_DIR, dataset_name, i)
+        print("Loading model from {}...".format(save_path))
         model = load(save_path)
         models[i] = model
     return models
 
 
+def evaluate(input_df, dataset_name):
+    models = load_models(dataset_name, input_df.y.unique())
+    for i in input_df.y.unique():
+        print("Evaluating model for Class {}...".format(i))
+        # get dataset for current class
+        df = utils.get_class_based_data(
+            input_df,
+            i,
+            random_state=np.random.seed(0),
+            include_other_classes=True,
+            limit_size=True,
+            even_distrib=True,
+        )
+        model = models[i]
+        score = model.score(df.lyrics.values, df.y.values.ravel())
+        print(score)
+
+
 spotify_df = pd.read_csv(const.CLEAN_SPOTIFY)
+spotify_train_df, spotify_test_df = utils.get_even_distrib_split(
+    spotify_df,
+    random_state=0,
+    test_size=0.1
+)
 deezer_df = pd.read_csv(const.CLEAN_DEEZER)
+deezer_train_df, deezer_test_df = utils.get_even_distrib_split(
+    deezer_df,
+    random_state=0,
+    test_size=0.1
+)
 
 estimators = [
     ('tfidf', TfidfVectorizer(stop_words=stop_words)),
@@ -152,26 +134,23 @@ param_grid = {
     'tfidf__min_df': [1, 5],
     'tfidf__max_df': [1.0, 0.5],
     'tfidf__ngram_range': [(1, 1), (1, 2), (1, 3)],
-    'tfidf__max_features': [None, 1000],
-    # 'tfidf__stop_words': [stop_words],
+    'tfidf__max_features': [10000, 1000],
+    'tfidf__stop_words': [stop_words, None],
     'adaboost__n_estimators': [1000, 2000, 3000],
 }
-# grid_search(spotify_df, "spotify", estimators, param_grid, log=False)
-
+grid_search(spotify_train_df, const.SPOTIFY, estimators, param_grid, log=True)
 
 # deezer grid search
 param_grid = {
     'tfidf__min_df': [1, 5, 10],
     'tfidf__max_df': [1.0, 0.5],
     'tfidf__ngram_range': [(1, 1), (1, 2), (1, 3)],
-    'tfidf__max_features': [None, 500],
-    # 'tfidf__stop_words': [stop_words],
+    'tfidf__max_features': [10000, 500],
+    'tfidf__stop_words': [stop_words, None],
     'adaboost__n_estimators': [500, 1000, 2000],
 }
-# grid_search(deezer_df, "deezer", estimators, param_grid, log=False)
+grid_search(deezer_train_df, const.DEEZER, estimators, param_grid, log=True)
 
-# spotify_models = load_models("spotify", spotify_df.y.unique())
-# grid_search(pd.concat((deezer_df, spotify_df)), "deezer-spotify", False)
-train_test_score(deezer_df)
-train_test_score(spotify_df)
+evaluate(deezer_df, const.DEEZER)
+evaluate(spotify_df, const.SPOTIFY)
 # train_test_score(pd.concat((deezer_df, spotify_df)))

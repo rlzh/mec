@@ -1,14 +1,16 @@
 import pandas as pd
 import numpy as np
+import nltk
+from nltk.corpus import stopwords
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics.pairwise import cosine_similarity
-from nltk.corpus import stopwords
-import nltk
+from sklearn.model_selection import train_test_split
 
 
 def get_stop_words():
+    ''' Builds and returns stopswords list from nltk and local text file '''
     nltk.download('stopwords')
     stop_words = set(stopwords.words('english'))
     f = open("stopwords.txt", 'r')
@@ -19,19 +21,21 @@ def get_stop_words():
 
 
 def print_song(df, i):
+    ''' Print song from dataframe at index i '''
     print("Song: {}".format(df.song[i].value))
     print("Artist: {}".format(df.artist[i].value))
     print("Lyrics: {}".format(df.lyrics[i].value))
 
 
 def get_word_counts(lyrics, print_=False):
+    ''' Calculates the word count for each lyric and returns result as array '''
     word_count = np.empty(shape=(len(lyrics),))
     for i in range(len(lyrics)):
-        if type(lyrics[i]) is str:
-            words = lyrics[i].split(' ')
-            word_count[i] = len(words)
-        else:
-            word_count[i] = 0
+        lyrics[i] = str(lyrics[i])
+    for i in range(len(lyrics)):
+        words = lyrics[i].split(' ')
+        word_count[i] = len(words)
+        word_count[i] = 0
     if print_ == True:
         print("Word count info")
         print("min word count: {} (id: {})".format(
@@ -44,6 +48,10 @@ def get_word_counts(lyrics, print_=False):
 
 
 def get_unique_counts(lyrics, print_=False):
+    ''' 
+    Calculates the unique word count for each lyric and returns 
+    result as array 
+    '''
     unique_count = np.empty(shape=(len(lyrics),))
     for i in range(len(lyrics)):
         lyrics[i] = str(lyrics[i])
@@ -68,6 +76,7 @@ def get_unique_counts(lyrics, print_=False):
 
 
 def get_emotion_counts(df, print_=False):
+    ''' Returns the emotion class distribution as pandas DF '''
     class_distrib = df['y'].value_counts()
     if print_ == True:
         print("Emotion info")
@@ -81,6 +90,10 @@ def get_emotion_counts(df, print_=False):
 
 
 def get_top_idf_ngrams(vectorized, vectorizer, n=10, order=-1):
+    ''' 
+    Returns the top ngrams according to IDF as dictionary
+     (key=ngram, value=IDF score)
+    '''
     feature_names = np.array(vectorizer.get_feature_names())
     vectorized_sorted = np.sort(vectorizer.idf_.flatten())[::order]
     vectorized_sorting = np.argsort(vectorizer.idf_).flatten()[::order]
@@ -92,6 +105,10 @@ def get_top_idf_ngrams(vectorized, vectorizer, n=10, order=-1):
 
 
 def get_top_total_ngrams(vectorized, vectorizer, n=10, order=-1):
+    ''' 
+    Returns the top ngrams according to sum of columns as 
+    dictionary (key=ngram, value=sum of column)
+    '''
     feature_names = np.array(vectorizer.get_feature_names())
     vectorized_sorted = np.sort(vectorized.toarray().sum(axis=0))[::order]
     vectorized_sorting = np.argsort(vectorized.toarray().sum(axis=0))[::order]
@@ -103,6 +120,10 @@ def get_top_total_ngrams(vectorized, vectorizer, n=10, order=-1):
 
 
 def get_within_data_cos_similarity(df, vectorizer, class_id, limit_size=True, even_distrib=True):
+    ''' 
+    Get within-data pairwise cosine similarity of positive and 
+    negative data samples for specified class 
+    '''
     class_df = get_class_based_data(
         df,
         class_id,
@@ -121,6 +142,10 @@ def get_within_data_cos_similarity(df, vectorizer, class_id, limit_size=True, ev
 
 
 def get_between_class_cos_similarity(df, vectorizer, primary_class, secondary_class):
+    '''
+    Get between-class pairwise cosine similarity of primary class and
+    secondary class
+    '''
     primary_df = get_class_based_data(
         df,
         primary_class,
@@ -140,25 +165,28 @@ def get_between_class_cos_similarity(df, vectorizer, primary_class, secondary_cl
     return cos_sim
 
 
-def get_shared_ngrams(data):
-    shared_ngrams = set()
-    unique_ngrams = set()
+def get_shared_words(lyrics):
+    ''' 
+    Return shared words & unique ngrams over all classes in lyrics
+    '''
+    shared_words = set()
+    unique_words = set()
     hashed_data = []
-    for row in data:
+    for row in lyrics:
         hashed_data.append(set(row))
-    for row in data:
+    for row in lyrics:
         for word in row:
-            if word in shared_ngrams:
+            if word in shared_words:
                 continue
-            unique_ngrams.add(word)
+            unique_words.add(word)
             is_shared = True
             for other_row in hashed_data:
                 if word not in other_row:
                     is_shared = False
                     break
             if is_shared:
-                shared_ngrams.add(word)
-    return shared_ngrams, unique_ngrams
+                shared_words.add(word)
+    return shared_words, unique_words
 
 
 def get_class_based_data(df, class_id, random_state=None, include_other_classes=True, limit_size=True, even_distrib=True):
@@ -210,3 +238,35 @@ def get_class_based_data(df, class_id, random_state=None, include_other_classes=
         result = pd.concat([pos_df, neg_df])
     result.columns = df.columns
     return result
+
+
+def get_even_distrib_split(df, test_size=0.1, random_state=None):
+    ''' 
+    Returns split of dataset with even distribution of
+    each class in train and test sets. Returns as pandas DF
+    '''
+    train = np.empty([0, df.shape[1]])
+    test = np.empty([0, df.shape[1]])
+    train_size = 1 - test_size
+    for i in df.y.unique():
+        class_data = df.loc[df.y == i].values
+        if random_state != None:
+            np.random.seed(random_state)
+        # shuffle values
+        np.random.shuffle(class_data)
+        split_index = int(len(class_data) * train_size)
+        # split into training and test sets
+        class_train = class_data[:split_index, :]
+        class_test = class_data[split_index:, :]
+        # concat to existing data
+        train = np.concatenate((train, class_train), axis=0)
+        test = np.concatenate((test, class_test), axis=0)
+    if random_state != None:
+        np.random.seed(random_state)
+    # shuffle dataset order
+    np.random.shuffle(train)
+    np.random.shuffle(test)
+    # return as pandas DF
+    train_df = pd.DataFrame(train, columns=df.columns)
+    test_df = pd.DataFrame(test, columns=df.columns)
+    return train_df, test_df

@@ -20,7 +20,7 @@ from utils import get_class_based_data
 from utils import get_stop_words
 from utils import get_within_data_cos_similarity
 from utils import get_between_class_cos_similarity
-from utils import get_shared_ngrams
+from utils import get_shared_words
 
 
 # load stop words
@@ -145,7 +145,7 @@ spotify_top_n = gen_word_cloud_grid(
     order=1,
     print_=print_
 )
-spotify_tfidf_shared, spotify_tfidf_unique = get_shared_ngrams(spotify_top_n)
+spotify_tfidf_shared, spotify_tfidf_unique = get_shared_words(spotify_top_n)
 
 deezer_top_n = gen_word_cloud_grid(
     'Deezer',
@@ -156,7 +156,7 @@ deezer_top_n = gen_word_cloud_grid(
     order=1,
     print_=print_
 )
-deezer_tfidf_shared, deezer_tfidf_unique = get_shared_ngrams(deezer_top_n)
+deezer_tfidf_shared, deezer_tfidf_unique = get_shared_words(deezer_top_n)
 
 
 top_n = gen_word_cloud_grid(
@@ -168,7 +168,7 @@ top_n = gen_word_cloud_grid(
     order=-1,
     print_=print_
 )
-spotify_count_shared, spotify_count_unique = get_shared_ngrams(top_n)
+spotify_count_shared, spotify_count_unique = get_shared_words(top_n)
 
 top_n = gen_word_cloud_grid(
     'Deezer',
@@ -179,7 +179,7 @@ top_n = gen_word_cloud_grid(
     order=-1,
     print_=print_
 )
-deezer_count_shared, deezer_count_unique = get_shared_ngrams(top_n)
+deezer_count_shared, deezer_count_unique = get_shared_words(top_n)
 
 print()
 print("Spotify: tfidf shared={}".format(
