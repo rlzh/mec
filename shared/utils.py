@@ -165,6 +165,13 @@ def get_between_class_cos_similarity(df, vectorizer, primary_class, secondary_cl
     )
     primary_vec = vectorizer.fit_transform(primary_df.lyrics.values)
     secondary_vec = vectorizer.fit_transform(secondary_df.lyrics.values)
+    if primary_vec.shape[1] != secondary_vec.shape[1]:
+        vectorizer.max_features = min(
+            primary_vec.shape[1],
+            secondary_vec.shape[1]
+        )
+        primary_vec = vectorizer.fit_transform(primary_df.lyrics.values)
+        secondary_vec = vectorizer.fit_transform(secondary_df.lyrics.values)
     # calculate pairwise cosine similarity between all class feature matrices
     cos_sim = cosine_similarity(primary_vec, secondary_vec)
     return cos_sim
