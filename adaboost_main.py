@@ -42,7 +42,6 @@ def grid_search(input_df, name, estimators, param_grid, log=True):
             limit_size=True,
             even_distrib=True,
         )
-        cachedir = mkdtemp()
         pipe = Pipeline(estimators, memory=None)
         # run grid search
         gscv = GridSearchCV(
