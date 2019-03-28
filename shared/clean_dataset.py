@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import progressbar as pbar
 import const
+import sys
 from preproc import get_indices_from_lang, get_indices_from_lang_whole
 from preproc import get_indices_from_unique_words
 from preproc import get_indices_from_word_count
@@ -134,39 +135,44 @@ def gen_labels(df, csv_path, cross_over_val=0, thresh=0, class_size=-1, class_di
     return
 
 
-# SPOTIFY DATASET
-df = clean(const.GEN_SPOTIFY)
-gen_labels(
-    df,
-    const.CLEAN_SPOTIFY,
-    cross_over_val=0.5,
-    # thresh=0.2,
-    class_distrib={
-        1: 1.0,
-        2: 1.0,
-        3: 1.0,
-        4: 1.0,
-    },
-    class_size=700,
-)
+def main(*args):
+    # SPOTIFY DATASET
+    df = clean(const.GEN_SPOTIFY)
+    gen_labels(
+        df,
+        const.CLEAN_SPOTIFY,
+        cross_over_val=0.5,
+        # thresh=0.2,
+        class_distrib={
+            1: 1.0,
+            2: 1.0,
+            3: 1.0,
+            4: 1.0,
+        },
+        class_size=700,
+    )
 
-# DEEZER DATASET
-df = clean(
-    const.GEN_DEEZER,
-    # word_count_range=(30, 600),
-    # unique_words_range=(10, 300)
-)
-offset = 0.1
-gen_labels(
-    df,
-    const.CLEAN_DEEZER,
-    cross_over_val=0,
-    # thresh=0.75,
-    class_distrib={
-        1: 1.0,
-        2: 1.0,
-        3: 1.0,
-        4: 1.0,
-    },
-    class_size=700,
-)
+    # DEEZER DATASET
+    df = clean(
+        const.GEN_DEEZER,
+        # word_count_range=(30, 600),
+        # unique_words_range=(10, 300)
+    )
+    offset = 0.1
+    gen_labels(
+        df,
+        const.CLEAN_DEEZER,
+        cross_over_val=0,
+        # thresh=0.75,
+        class_distrib={
+            1: 1.0,
+            2: 1.0,
+            3: 1.0,
+            4: 1.0,
+        },
+        class_size=700,
+    )
+
+
+if __name__ == 'main':
+    main(*sys.argv[1:])

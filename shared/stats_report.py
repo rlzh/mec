@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 import const
 import nltk
+import sys
+import utils
 import matplotlib.pyplot as plt
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.feature_extraction.text import CountVectorizer
@@ -56,67 +58,81 @@ def get_y(df):
     return y
 
 
-print_ = True
-show = False
+def main(*args):
+    show = False
+    print_ = True
 
-gen_spotify_df = pd.read_csv(const.GEN_SPOTIFY)
-clean_spotify_df = pd.read_csv(const.CLEAN_SPOTIFY)
-if print_:
-    print("Spotify missing per col: \n{}".format(clean_spotify_df.isna().sum()))
+    # print command line arguments
+    for arg in args:
+        k = arg.split("=")[0]
+        v = arg.split("=")[1]
+        if k == 'show':
+            show = utils.str_to_bool(v)
+        elif k == 'print':
+            print_ = utils.str_to_bool(v)
 
-gen_deezer_df = pd.read_csv(const.GEN_DEEZER)
-clean_deezer_df = pd.read_csv(const.CLEAN_DEEZER)
-if print_:
-    print("Deezer missing per col: \n{}".format(clean_deezer_df.isna().sum()))
+    gen_spotify_df = pd.read_csv(const.GEN_SPOTIFY)
+    clean_spotify_df = pd.read_csv(const.CLEAN_SPOTIFY)
+    if print_:
+        print("Spotify missing per col: \n{}".format(
+            clean_spotify_df.isna().sum()))
+
+    gen_deezer_df = pd.read_csv(const.GEN_DEEZER)
+    clean_deezer_df = pd.read_csv(const.CLEAN_DEEZER)
+    if print_:
+        print("Deezer missing per col: \n{}".format(
+            clean_deezer_df.isna().sum()))
+
+    # get info on datasets
+    clean_spotify_wc = get_word_counts(
+        clean_spotify_df.lyrics.values, print_=print_)
+    clean_spotify_uc = get_unique_counts(
+        clean_spotify_df.lyrics.values, print_=print_)
+    gen_spotify_wc = get_word_counts(gen_spotify_df.lyrics.values)
+    gen_spotify_uc = get_unique_counts(gen_spotify_df.lyrics.values)
+    spotify_class_distrib = get_emotion_counts(clean_spotify_df, print_=print_)
+    clean_deezer_wc = get_word_counts(
+        clean_deezer_df.lyrics.values, print_=print_)
+    clean_deezer_uc = get_unique_counts(
+        clean_deezer_df.lyrics.values, print_=print_)
+    gen_deezer_wc = get_word_counts(gen_deezer_df.lyrics.values)
+    gen_deezer_uc = get_unique_counts(gen_deezer_df.lyrics.values)
+    deezer_class_distrib = get_emotion_counts(clean_deezer_df, print_=print_)
+
+    # word count hist
+    gen_hist("Spotify vs Deezer: Dataset Word Count",
+             clean_spotify_wc, "spotify", clean_deezer_wc, "deezer", a1=0.6, a2=0.6)
+
+    # unique word count hist
+    gen_hist("Spotify vs Deezer: Dataset Unique Words Count",
+             clean_spotify_uc, "spotify", clean_deezer_uc, "deezer", a1=0.6, a2=0.6)
+
+    # class distrib scatter plot
+    gen_val_arousal_scatter(
+        "Spotify: Class Distribution",
+        clean_spotify_df.valence.values,
+        clean_spotify_df.arousal.values
+    )
+    gen_val_arousal_scatter(
+        "Deezer: Class Distribution",
+        clean_deezer_df.valence.values,
+        clean_deezer_df.arousal.values
+    )
+
+    # class distrib hist
+    plt.figure()
+    x = np.array([1, 2, 3, 4])
+
+    plt.title("Spotify vs Deezer: Class Distribution")
+    plt.bar(x - 0.125, get_y(clean_spotify_df),
+            width=0.25, align='center', label='spotify')
+    plt.bar(x + 0.125, get_y(clean_deezer_df),
+            width=0.25, align='center', label='deezer')
+    plt.xticks(x)
+    plt.legend()
+    if show:
+        plt.show()
 
 
-# get info on datasets
-clean_spotify_wc = get_word_counts(
-    clean_spotify_df.lyrics.values, print_=print_)
-clean_spotify_uc = get_unique_counts(
-    clean_spotify_df.lyrics.values, print_=print_)
-gen_spotify_wc = get_word_counts(gen_spotify_df.lyrics.values)
-gen_spotify_uc = get_unique_counts(gen_spotify_df.lyrics.values)
-spotify_class_distrib = get_emotion_counts(clean_spotify_df, print_=print_)
-clean_deezer_wc = get_word_counts(clean_deezer_df.lyrics.values, print_=print_)
-clean_deezer_uc = get_unique_counts(
-    clean_deezer_df.lyrics.values, print_=print_)
-gen_deezer_wc = get_word_counts(gen_deezer_df.lyrics.values)
-gen_deezer_uc = get_unique_counts(gen_deezer_df.lyrics.values)
-deezer_class_distrib = get_emotion_counts(clean_deezer_df, print_=print_)
-
-# word count hist
-gen_hist("Spotify vs Deezer: Dataset Word Count",
-         clean_spotify_wc, "spotify", clean_deezer_wc, "deezer", a1=0.6, a2=0.6)
-
-
-# unique word count hist
-gen_hist("Spotify vs Deezer: Dataset Unique Words Count",
-         clean_spotify_uc, "spotify", clean_deezer_uc, "deezer", a1=0.6, a2=0.6)
-
-# class distrib scatter plot
-gen_val_arousal_scatter(
-    "Spotify: Class Distribution",
-    clean_spotify_df.valence.values,
-    clean_spotify_df.arousal.values
-)
-gen_val_arousal_scatter(
-    "Deezer: Class Distribution",
-    clean_deezer_df.valence.values,
-    clean_deezer_df.arousal.values
-)
-
-
-# class distrib hist
-plt.figure()
-x = np.array([1, 2, 3, 4])
-
-plt.title("Spotify vs Deezer: Class Distribution")
-plt.bar(x - 0.125, get_y(clean_spotify_df),
-        width=0.25, align='center', label='spotify')
-plt.bar(x + 0.125, get_y(clean_deezer_df),
-        width=0.25, align='center', label='deezer')
-plt.xticks(x)
-plt.legend()
-if show:
-    plt.show()
+if __name__ == 'main':
+    main(*sys.argv[1:])

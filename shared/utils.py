@@ -9,6 +9,10 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.model_selection import train_test_split
 
 
+def str_to_bool(s):
+    return True if s.lower() == 'true' or s == str(1) or s.lower() == 'on' else False
+
+
 def get_stop_words():
     ''' Builds and returns stopswords list from nltk and local text file '''
     nltk.download('stopwords')
