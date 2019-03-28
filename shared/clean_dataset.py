@@ -13,12 +13,23 @@ from preproc import get_indices_from_text_len_z_score
 from preproc import get_indices_from_char
 from preproc import get_indices_from_lsa_z_score
 from preproc import get_indices_from_unique_count_z_score
+from utils import str_to_bool
+
+
+def check_dup(df, s):
+    init = (df.shape[0])
+    df = df.drop_duplicates(subset=['song', 'artist'])
+    if df.shape[0] != init:
+        print(init)
+        print(df.shape[0])
+        print(s)
 
 
 def clean(csv_path, word_count_range=(50, 800), unique_words_range=(20, 350)):
-    ''' Load dataset from csv_path & remove outliers '''
+    ''' Load dataset from csv_path & clean  '''
     # load dataset
     df = pd.read_csv(csv_path, dtype=object)
+    print()
     print("Cleaning {}...".format(csv_path))
     print()
     print("Uncleaned shape: {}".format(df.shape))
@@ -28,6 +39,13 @@ def clean(csv_path, word_count_range=(50, 800), unique_words_range=(20, 350)):
     print()
     # remove any row with nan value(s)
     df.dropna(inplace=True)
+    df.reset_index(drop=True, inplace=True)
+
+    # remove any duplicate songs
+    rows = len(df)
+    df = df.drop_duplicates(subset=['song', 'artist'], keep='first')
+    print("Dulicates removed: {}".format(rows - len(df)))
+    print()
     df.reset_index(drop=True, inplace=True)
 
     # remove any song with lyrics that do not have special lyric tags (e.g. [VERSE 1], [CHORUS], etc.)
@@ -70,8 +88,8 @@ def clean(csv_path, word_count_range=(50, 800), unique_words_range=(20, 350)):
     return df
 
 
-def gen_labels(df, csv_path, cross_over_val=0, thresh=0, class_size=-1, class_distrib={}):
-    ''' Dataset proprocessing & save to csv_path'''
+def gen_labels(df, cross_over_val=0, thresh=0, class_size=-1, class_distrib={}):
+    ''' Dataset labelling '''
     # create emotion class label (i.e. Y) based on arousal & valence
     y = np.empty(shape=(df.shape[0], 2))
     va_list = pd.concat([df.valence, df.arousal], axis=1).values
@@ -112,7 +130,7 @@ def gen_labels(df, csv_path, cross_over_val=0, thresh=0, class_size=-1, class_di
             class_size, class_distrib))
         result = pd.DataFrame([], columns=df.columns)
         for i in df.y.unique():
-            pos_df = df.loc[df.y == i]
+            pos_df = df.loc[df['y'] == i]
             # sort songs by distance from origin (decsending)
             pos_df = pos_df.sort_values(by='dist', ascending=False)
             distrib = 1.0 if i not in class_distrib else class_distrib[i]
@@ -131,36 +149,77 @@ def gen_labels(df, csv_path, cross_over_val=0, thresh=0, class_size=-1, class_di
     print(df.y.value_counts())
     print("Labelled shape: {}".format(df.shape))
     print()
-
-    # save as csv (don't include indices in .csv)
-    df.to_csv(csv_path, index=False)
-    return
+    return df
 
 
 def main(*args):
+
+    dry_run = False
+    class_size = -1
+    spotify_thresh = 0.2
+    deezer_thresh = 0.8
+
+    for arg in args:
+        k = arg.split("=")[0]
+        v = arg.split("=")[1]
+        if k == 'dry_run':
+            dry_run = str_to_bool(v)
+        elif k == 'class_size':
+            class_size = int(v)
+        elif k == 'spotify_thresh':
+            spotify_thresh = float(v)
+        elif k == 'deezer_thresh':
+            deezer_thresh = float(v)
+
+    print()
+    print("--- Clean config ---")
+    print("Dry run: {}".format(dry_run))
+    print("Class size: {}".format(class_size))
+    print("Spotify thresh: {}".format(spotify_thresh))
+    print("Deezer thresh: {}".format(deezer_thresh))
+    print("--------------------")
+    print()
+
     # SPOTIFY DATASET
-    df = clean(const.GEN_SPOTIFY)
-    gen_labels(
-        df,
-        const.CLEAN_SPOTIFY,
+    cleaned_df = clean(const.GEN_SPOTIFY)
+    df = gen_labels(
+        cleaned_df,
         cross_over_val=0.5,
-        # thresh=0.2,
-        class_size=700,
+        thresh=spotify_thresh,
+        class_size=class_size,
     )
+    check_dup(df, "Error: Duplicates!!!!!!!!!!!!!!!!!")
+
+    if dry_run == False:
+        # save as csv (don't include indices in .csv)
+        if class_size > 0:
+            print("Saving result to {}...".format(const.CLEAN_SPOTIFY))
+            df.to_csv(const.CLEAN_SPOTIFY, index=False)
+        else:
+            print("Saving result to {}...".format(const.CLEAN_UNEVEN_SPOTIFY))
+            df.to_csv(const.CLEAN_UNEVEN_SPOTIFY, index=False)
 
     # DEEZER DATASET
-    df = clean(
+    cleaned_df = clean(
         const.GEN_DEEZER,
         # word_count_range=(30, 600),
         # unique_words_range=(10, 300)
     )
-    gen_labels(
-        df,
-        const.CLEAN_DEEZER,
+    df = gen_labels(
+        cleaned_df,
         cross_over_val=0,
-        # thresh=0.75,
-        class_size=700,
+        thresh=deezer_thresh,
+        class_size=class_size,
     )
+    check_dup(df, "Error: Duplicates!!!!!!!!!!!!!!!!!")
+    if dry_run == False:
+        # save as csv (don't include indices in .csv)
+        if class_size > 0:
+            print("Saving result to {}...".format(const.CLEAN_DEEZER))
+            df.to_csv(const.CLEAN_DEEZER, index=False)
+        else:
+            print("Saving result to {}...".format(const.CLEAN_UNEVEN_DEEZER))
+            df.to_csv(const.CLEAN_UNEVEN_DEEZER, index=False)
 
 
 if __name__ == '__main__':

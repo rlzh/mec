@@ -64,7 +64,7 @@ def get_unique_counts(lyrics, print_=False):
             for w in words:
                 if w not in s:
                     s.add(w)
-                    unique_count[i] += 1
+            unique_count[i] = len(s)
         else:
             unique_count[i] = 0
 
@@ -160,15 +160,19 @@ def get_between_class_cos_similarity(df, vectorizer, primary_class, secondary_cl
         include_other_classes=False,
         limit_size=False,
     )
-    primary_vec = vectorizer.fit_transform(primary_df.lyrics.values)
-    secondary_vec = vectorizer.fit_transform(secondary_df.lyrics.values)
-    if primary_vec.shape[1] != secondary_vec.shape[1]:
-        vectorizer.max_features = min(
-            primary_vec.shape[1],
-            secondary_vec.shape[1]
-        )
-        primary_vec = vectorizer.fit_transform(primary_df.lyrics.values)
-        secondary_vec = vectorizer.fit_transform(secondary_df.lyrics.values)
+    combined_df = pd.concat([primary_df, secondary_df], ignore_index=True)
+    vectorized = vectorizer.fit_transform(combined_df.lyrics.values)
+    primary_vec = vectorized[: len(primary_df)]
+    # print(len(primary_vec.toarray()) == len(primary_df))
+    secondary_vec = vectorized[len(primary_df):]
+    # print(len(secondary_vec.toarray()) == len(secondary_df))
+    # if primary_vec.shape[1] != secondary_vec.shape[1]:
+    #     vectorizer.max_features = min(
+    #         primary_vec.shape[1],
+    #         secondary_vec.shape[1]
+    #     )
+    #     primary_vec = vectorizer.fit_transform(primary_df.lyrics.values)
+    #     secondary_vec = vectorizer.fit_transform(secondary_df.lyrics.values)
     # calculate pairwise cosine similarity between all class feature matrices
     cos_sim = cosine_similarity(primary_vec, secondary_vec)
     return cos_sim
@@ -198,7 +202,7 @@ def get_shared_words(lyrics):
     return shared_words, unique_words
 
 
-def get_class_based_data(df, class_id, random_state=None, include_other_classes=True, limit_size=True, even_distrib=True):
+def get_class_based_data(df, class_id, random_state=None, include_other_classes=True, limit_size=True, even_distrib=False):
     '''
     Random generate equally sized dataset for binary classifiers of specified class
     by limiting the generated dataset size to minimum across all classes in dataset.
@@ -212,6 +216,7 @@ def get_class_based_data(df, class_id, random_state=None, include_other_classes=
         max_size = min(len(neg_df), len(pos_df))
 
     if include_other_classes:
+        # NOTE: This section is unused at the moment!
         if even_distrib:
             # even distribution of negative class data between negative classes
             required_size = int(max_size / 3)
@@ -249,7 +254,7 @@ def get_class_based_data(df, class_id, random_state=None, include_other_classes=
     return result
 
 
-def get_even_distrib_split(df, test_size=0.1, random_state=None):
+def get_distrib_split(df, test_size=0.1, random_state=None):
     ''' 
     Returns split of dataset with even distribution of
     each class in train and test sets. Returns as pandas DF

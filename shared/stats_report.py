@@ -7,7 +7,6 @@ import utils
 import matplotlib.pyplot as plt
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.metrics.pairwise import paired_euclidean_distances
 from nltk.corpus import stopwords
 from wordcloud import WordCloud
@@ -15,16 +14,12 @@ from sklearn.preprocessing import MinMaxScaler
 from utils import get_word_counts
 from utils import get_unique_counts
 from utils import get_emotion_counts
-from utils import get_top_idf_ngrams
-from utils import get_top_total_ngrams
 from utils import get_class_based_data
 from utils import get_stop_words
-from utils import get_within_data_cos_similarity
-from utils import get_between_class_cos_similarity
-from utils import get_shared_words
 
 # load stop words
 stop_words = get_stop_words()
+
 
 def gen_word_cloud(top_n):
     plt.figure()
@@ -44,14 +39,14 @@ def gen_hist(title, hist1, label1, hist2=np.array([None]), label2="", a1=1, a2=0
 
 def gen_val_arousal_scatter(title, valence, arousal):
     fig = plt.figure()
-    scatter = plt.scatter(valence, arousal, alpha=0.7)
+    scatter = plt.scatter(valence, arousal, alpha=0.6)
     plt.title(title)
     plt.xlabel("Valence")
     plt.ylabel("Arousal")
 
 
 def get_y(df):
-    y = [0] * 4
+    y = [0] * len(df.y.unique())
     for i in df.y.unique():
         y[int(i)-1] = len(df.loc[df.y == i])
     return y
@@ -59,55 +54,69 @@ def get_y(df):
 
 def main(*args):
 
-    show = False
-    print_ = True
-
+    plot = const.PLOT_DEFAULT
+    print_ = const.PRINT_DEFAULT
+    even_distrib = const.EVEN_DISTRIB_DEFAULT
+    plt.rcParams.update({'font.size': const.FONT_SIZE_DEFAULT})
     # print command line arguments
     for arg in args:
         k = arg.split("=")[0]
         v = arg.split("=")[1]
-        if k == 'show':
-            show = utils.str_to_bool(v)
+        if k == 'plot':
+            plot = utils.str_to_bool(v)
         elif k == 'print':
             print_ = utils.str_to_bool(v)
         elif k == 'font_size':
             plt.rcParams.update({'font.size': int(v)})
+        elif k == 'even_distrib':
+            even_distrib = utils.str_to_bool(v)
 
+    if print_:
+        print()
+        print("--- Stats config ---")
+        print("Even distribution dataset: {}".format(even_distrib))
+        print("Plot: {}".format(plot))
+        print("--------------------")
+        print()
+
+    # load data
     gen_spotify_df = pd.read_csv(const.GEN_SPOTIFY)
     clean_spotify_df = pd.read_csv(const.CLEAN_SPOTIFY)
+    if even_distrib == False:
+        clean_spotify_df = pd.read_csv(const.CLEAN_UNEVEN_SPOTIFY)
     if print_:
         print("Spotify missing per col: \n{}".format(
             clean_spotify_df.isna().sum()))
+        print()
 
     gen_deezer_df = pd.read_csv(const.GEN_DEEZER)
     clean_deezer_df = pd.read_csv(const.CLEAN_DEEZER)
+    if even_distrib == False:
+        clean_deezer_df = pd.read_csv(const.CLEAN_UNEVEN_DEEZER)
     if print_:
         print("Deezer missing per col: \n{}".format(
             clean_deezer_df.isna().sum()))
+        print()
 
     # get info on datasets
     clean_spotify_wc = get_word_counts(
         clean_spotify_df.lyrics.values, print_=print_)
     clean_spotify_uc = get_unique_counts(
         clean_spotify_df.lyrics.values, print_=print_)
-    # gen_spotify_wc = get_word_counts(gen_spotify_df.lyrics.values)
-    # gen_spotify_uc = get_unique_counts(gen_spotify_df.lyrics.values)
     spotify_class_distrib = get_emotion_counts(clean_spotify_df, print_=print_)
     clean_deezer_wc = get_word_counts(
         clean_deezer_df.lyrics.values, print_=print_)
     clean_deezer_uc = get_unique_counts(
         clean_deezer_df.lyrics.values, print_=print_)
-    # gen_deezer_wc = get_word_counts(gen_deezer_df.lyrics.values)
-    # gen_deezer_uc = get_unique_counts(gen_deezer_df.lyrics.values)
     deezer_class_distrib = get_emotion_counts(clean_deezer_df, print_=print_)
 
     # word count hist
     gen_hist("Spotify vs Deezer: Dataset Word Count",
-             clean_spotify_wc, "spotify", clean_deezer_wc, "deezer", a1=0.6, a2=0.6)
+             clean_spotify_wc, const.SPOTIFY, clean_deezer_wc, const.DEEZER, a1=0.4, a2=0.4)
 
     # unique word count hist
     gen_hist("Spotify vs Deezer: Dataset Unique Words Count",
-             clean_spotify_uc, "spotify", clean_deezer_uc, "deezer", a1=0.6, a2=0.6)
+             clean_spotify_uc, const.SPOTIFY, clean_deezer_uc, const.DEEZER, a1=0.4, a2=0.4)
 
     # class distrib scatter plot
     gen_val_arousal_scatter(
@@ -127,12 +136,12 @@ def main(*args):
 
     plt.title("Spotify vs Deezer: Class Distribution")
     plt.bar(x - 0.125, get_y(clean_spotify_df),
-            width=0.25, align='center', label='spotify')
+            width=0.25, align='center', label=const.SPOTIFY)
     plt.bar(x + 0.125, get_y(clean_deezer_df),
-            width=0.25, align='center', label='deezer')
-    plt.xticks(x)
+            width=0.25, align='center', label=const.DEEZER)
+    plt.xticks(x, ["Happy", "Angry", "Sad", "Relaxed"])
     plt.legend()
-    if show:
+    if plot:
         plt.show()
 
 

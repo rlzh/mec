@@ -128,6 +128,7 @@ def get_indices_from_lang_whole(lyrics):
     return remove_indices
 
 
+# this doesn't work all that well...
 def get_indices_from_lang(lyrics, elligible_char_len=4, neg_prob_thresh=0.8, pos_thresh=0.8, lang='en', elligible_word_thresh=10):
     '''
     Returns indices of entries to remove based on language. Removal criteria is

@@ -89,8 +89,10 @@ def calc_train_data_cos_sim(name, df, vectorizer, random_state=None, print_=Fals
         )
         # calc positive within-class cosine similarity
         pos_cos_sim = get_within_class_cos_similarity(class_df, vectorizer, 1)
+        print(pos_cos_sim.shape)
         # calc negative within-class cosine similarity
         neg_cos_sim = get_within_class_cos_similarity(class_df, vectorizer, -1)
+        print(neg_cos_sim.shape)
         # calc positive negative between-class cosine similarity
         between_cos_sim = get_between_class_cos_similarity(
             class_df, vectorizer, 1, -1)
@@ -128,7 +130,7 @@ def calc_class_cos_sim(name, df, vectorizer, print_=False):
             df, vectorizer, classes[i])
         within_total += LA.norm(within_cos_sim)
         within_log.append("{} Class {}: within class cosine sim norm = {}".format(
-            name, i, LA.norm(within_cos_sim)))
+            name, classes[i], LA.norm(within_cos_sim)))
         for j in range(i + 1, len(classes)):
             # calc between-class cosine similarity
             between_cos_sim = get_between_class_cos_similarity(
@@ -155,21 +157,23 @@ def main(*args):
     # load stop words
     stop_words = get_stop_words()
 
-    show = False
-    print_ = True
+    plot = const.PLOT_DEFAULT
+    print_ = const.PRINT_DEFAULT
     max_features = 5000
     random_state = None
     order = -1  # default descending order
     wordcloud_n = None
     wordcloud_ = True
     cos_sim = True
+    even_distrib = const.EVEN_DISTRIB_DEFAULT
+    plt.rcParams.update({'font.size': const.FONT_SIZE_DEFAULT})
 
     # print command line arguments
     for arg in args:
         k = arg.split("=")[0]
         v = arg.split("=")[1]
-        if k == 'show':
-            show = utils.str_to_bool(v)
+        if k == 'plot':
+            plot = utils.str_to_bool(v)
         elif k == 'print':
             print_ = utils.str_to_bool(v)
         elif k == 'max_features':
@@ -189,10 +193,13 @@ def main(*args):
             cos_sim = utils.str_to_bool(v)
         elif k == 'font_size':
             plt.rcParams.update({'font.size': int(v)})
-
+        elif k == 'even_distrib':
+            even_distrib = utils.str_to_bool(v)
+            
     if print_:
         print()
-        print("---- Analysis config ----")
+        print("-- Analysis config --")
+        print("Even distribution dataset: {}".format(even_distrib))
         print("Stop words: {}".format(stop_words == None))
         print("Max features: {}".format(max_features))
         print("Random state: {}".format(random_state))
@@ -200,14 +207,19 @@ def main(*args):
         print("Wordcloud top N: {}".format(wordcloud_n))
         print("Wordcloud order: {}".format(order))
         print("Calc cos sim: {}".format(cos_sim))
-        print("Plot: {}".format(show))
+        print("Plot: {}".format(plot))
+        print("--------------------")
         print()
 
     gen_spotify_df = pd.read_csv(const.GEN_SPOTIFY)
     clean_spotify_df = pd.read_csv(const.CLEAN_SPOTIFY)
+    if even_distrib == False:
+        clean_spotify_df = pd.read_csv(const.CLEAN_UNEVEN_SPOTIFY)
 
     gen_deezer_df = pd.read_csv(const.GEN_DEEZER)
     clean_deezer_df = pd.read_csv(const.CLEAN_DEEZER)
+    if even_distrib == False:
+        clean_deezer_df = pd.read_csv(const.CLEAN_UNEVEN_DEEZER)
 
     tfidf = TfidfVectorizer(
         stop_words=stop_words,
@@ -290,7 +302,7 @@ def main(*args):
             tfidf,
             print_=print_,
             random_state=random_state,
-
+            
         )
         calc_train_data_cos_sim(
             "Deezer",
@@ -314,7 +326,7 @@ def main(*args):
             print_=print_
         )
 
-    if show:
+    if plot:
         plt.show()
 
 
