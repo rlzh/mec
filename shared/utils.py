@@ -35,11 +35,11 @@ def get_word_counts(lyrics, print_=False):
     ''' Calculates the word count for each lyric and returns result as array '''
     word_count = np.empty(shape=(len(lyrics),))
     for i in range(len(lyrics)):
-        lyrics[i] = str(lyrics[i])
-    for i in range(len(lyrics)):
-        words = lyrics[i].split(' ')
-        word_count[i] = len(words)
-        word_count[i] = 0
+        if lyrics[i] != np.nan:
+            words = str(lyrics[i]).split(' ')
+            word_count[i] = len(words)
+        else:
+            word_count[i] = 0
     if print_ == True:
         print("Word count info")
         print("min word count: {} (id: {})".format(
@@ -58,14 +58,15 @@ def get_unique_counts(lyrics, print_=False):
     '''
     unique_count = np.empty(shape=(len(lyrics),))
     for i in range(len(lyrics)):
-        lyrics[i] = str(lyrics[i])
-    for i in range(len(lyrics)):
-        words = (lyrics[i]).split(' ')
-        s = set()
-        for w in words:
-            if w not in s:
-                s.add(w)
-                unique_count[i] += 1
+        if lyrics[i] != np.nan:
+            words = str(lyrics[i]).split(' ')
+            s = set()
+            for w in words:
+                if w not in s:
+                    s.add(w)
+                    unique_count[i] += 1
+        else:
+            unique_count[i] = 0
 
     if print_ == True:
         print("Unique count info")

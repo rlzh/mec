@@ -24,6 +24,8 @@ from utils import get_within_data_cos_similarity
 from utils import get_between_class_cos_similarity
 from utils import get_shared_words
 
+# load stop words
+stop_words = get_stop_words()
 
 def gen_word_cloud_grid(name, df, vectorizer, top_n_generator, n=10, order=-1, print_=False):
     fig, axs = plt.subplots(2, 2)
@@ -123,9 +125,6 @@ def gen_between_class_cos_sim_heatmaps(name, df, max_features=1000, print_=False
 
 
 def main(*args):
-
-    # load stop words
-    stop_words = get_stop_words()
 
     show = False
     print_ = True

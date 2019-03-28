@@ -23,6 +23,8 @@ from utils import get_within_data_cos_similarity
 from utils import get_between_class_cos_similarity
 from utils import get_shared_words
 
+# load stop words
+stop_words = get_stop_words()
 
 def gen_word_cloud(top_n):
     plt.figure()
@@ -57,9 +59,6 @@ def get_y(df):
 
 def main(*args):
 
-    # load stop words
-    stop_words = get_stop_words()
-
     show = False
     print_ = True
 
@@ -91,15 +90,15 @@ def main(*args):
         clean_spotify_df.lyrics.values, print_=print_)
     clean_spotify_uc = get_unique_counts(
         clean_spotify_df.lyrics.values, print_=print_)
-    gen_spotify_wc = get_word_counts(gen_spotify_df.lyrics.values)
-    gen_spotify_uc = get_unique_counts(gen_spotify_df.lyrics.values)
+    # gen_spotify_wc = get_word_counts(gen_spotify_df.lyrics.values)
+    # gen_spotify_uc = get_unique_counts(gen_spotify_df.lyrics.values)
     spotify_class_distrib = get_emotion_counts(clean_spotify_df, print_=print_)
     clean_deezer_wc = get_word_counts(
         clean_deezer_df.lyrics.values, print_=print_)
     clean_deezer_uc = get_unique_counts(
         clean_deezer_df.lyrics.values, print_=print_)
-    gen_deezer_wc = get_word_counts(gen_deezer_df.lyrics.values)
-    gen_deezer_uc = get_unique_counts(gen_deezer_df.lyrics.values)
+    # gen_deezer_wc = get_word_counts(gen_deezer_df.lyrics.values)
+    # gen_deezer_uc = get_unique_counts(gen_deezer_df.lyrics.values)
     deezer_class_distrib = get_emotion_counts(clean_deezer_df, print_=print_)
 
     # word count hist

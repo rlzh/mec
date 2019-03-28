@@ -70,7 +70,7 @@ def clean(csv_path, word_count_range=(50, 800), unique_words_range=(20, 350)):
     return df
 
 
-def gen_labels(df, csv_path, cross_over_val=0, thresh=0, class_size=-1, class_distrib=None):
+def gen_labels(df, csv_path, cross_over_val=0, thresh=0, class_size=-1, class_distrib={}):
     ''' Dataset proprocessing & save to csv_path'''
     # create emotion class label (i.e. Y) based on arousal & valence
     y = np.empty(shape=(df.shape[0], 2))
@@ -82,7 +82,7 @@ def gen_labels(df, csv_path, cross_over_val=0, thresh=0, class_size=-1, class_di
     # Quad 3: V < cross_over_val & A <= cross_over_val -> Sad
     # Quad 4: V >= cross_over_val & A < cross_over_val -> Relaxed
     remove_indices = []
-
+    print("Labelling songs...")
     for i in pbar.progressbar(range(va_list.shape[0])):
         v = float(va_list[i, 0])
         a = float(va_list[i, 1])
@@ -98,36 +98,38 @@ def gen_labels(df, csv_path, cross_over_val=0, thresh=0, class_size=-1, class_di
 
         # remove if euclidean distance below threshold
         y[i, 1] = ((v - cross_over_val)**2 + (a - cross_over_val)**2)**.5
-        remove = y[i, 1] < thresh
-        if remove:
+        if y[i, 1] < thresh:
             remove_indices.append(i)
 
     y_df = pd.DataFrame(y, columns=['y', 'dist'])
     df = pd.concat([df, y_df], axis=1)
-    print("{} songs removed".format(len(remove_indices)))
+    print("Finished labelling songs! {} songs removed".format(len(remove_indices)))
     df.drop(index=remove_indices, inplace=True)
     df.reset_index(drop=True, inplace=True)
-
     if class_size > 0:
         class_size = min(df.y.value_counts().max(), class_size)
+        print("Filtering songs based on class size={} and distrib={}...".format(
+            class_size, class_distrib))
         result = pd.DataFrame([], columns=df.columns)
         for i in df.y.unique():
             pos_df = df.loc[df.y == i]
+            # sort songs by distance from origin (decsending)
             pos_df = pos_df.sort_values(by='dist', ascending=False)
-            distrib = 1 if i not in class_distrib else class_distrib[i]
+            distrib = 1.0 if i not in class_distrib else class_distrib[i]
             required_size = int(class_size * distrib)
             if len(pos_df) > required_size:
                 rows = pos_df.iloc[:required_size]
                 result = pd.concat([result, rows], ignore_index=True)
             else:
                 result = pd.concat([result, pos_df], ignore_index=True)
-        print("{} songs removed".format(len(df) - len(remove_indices)))
+        print("Done filtering songs! {} songs removed".format(
+            len(df) - len(remove_indices)))
         df = result
     df = df.drop(['dist'], axis=1)
     # df = df.sample(frac=1)
-    print("class distrib")
+    print("Class Distribution")
     print(df.y.value_counts())
-    print("df shape: {}".format(df.shape))
+    print("Labelled shape: {}".format(df.shape))
     print()
 
     # save as csv (don't include indices in .csv)
@@ -143,12 +145,6 @@ def main(*args):
         const.CLEAN_SPOTIFY,
         cross_over_val=0.5,
         # thresh=0.2,
-        class_distrib={
-            1: 1.0,
-            2: 1.0,
-            3: 1.0,
-            4: 1.0,
-        },
         class_size=700,
     )
 
@@ -158,21 +154,14 @@ def main(*args):
         # word_count_range=(30, 600),
         # unique_words_range=(10, 300)
     )
-    offset = 0.1
     gen_labels(
         df,
         const.CLEAN_DEEZER,
         cross_over_val=0,
         # thresh=0.75,
-        class_distrib={
-            1: 1.0,
-            2: 1.0,
-            3: 1.0,
-            4: 1.0,
-        },
         class_size=700,
     )
 
 
-if __name__ == 'main':
+if __name__ == '__main__':
     main(*sys.argv[1:])
