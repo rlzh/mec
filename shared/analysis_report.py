@@ -34,6 +34,8 @@ def gen_word_cloud_grid(name, df, vectorizer, top_n_generator, n=10, order=-1, p
     fig.suptitle(
         '{}: uni-grams per class'.format(name))
     top_n_list = [None] * 4
+    if print_:
+        print(type(vectorizer))
     for i in df.y.unique():
         class_df = get_class_based_data(
             df,
@@ -44,7 +46,8 @@ def gen_word_cloud_grid(name, df, vectorizer, top_n_generator, n=10, order=-1, p
         )
         vectorized = vectorizer.fit_transform(class_df.lyrics.values)
         if print_:
-            print("Class {}: feature size={}".format(i, vectorized.shape))
+            print("{} Class {}: feature size={}".format(
+                name, i, vectorized.shape))
         top_n = top_n_generator(
             vectorized,
             vectorizer,
@@ -72,10 +75,13 @@ def gen_word_cloud_grid(name, df, vectorizer, top_n_generator, n=10, order=-1, p
             keys.append(key)
         top_n_list[int(i)-1] = keys
     fig.tight_layout()
+    if print_:
+        print()
+
     return np.array(top_n_list)
 
 
-def gen_within_data_cos_sim_heapmaps(name, df, max_features=1000, print_=False):
+def gen_within_data_cos_sim_heatmaps(name, df, max_features=1000, print_=False):
     print("Max features: {}".format(max_features))
     tfidf = TfidfVectorizer(
         stop_words=stop_words,
@@ -91,10 +97,11 @@ def gen_within_data_cos_sim_heapmaps(name, df, max_features=1000, print_=False):
         total += cos_sim.sum()
     average = total/len(df.y.unique())
     if print_:
-        print("{}: average cosine similiarity: {}".format(name, average))
+        print("{}: average cosine similiarity sum: {}".format(name, average))
+        print()
 
 
-def gen_between_class_cos_sim_heapmaps(name, df, max_features=1000, print_=False):
+def gen_between_class_cos_sim_heatmaps(name, df, max_features=1000, print_=False):
     print("Max features: {}".format(max_features))
     tfidf = TfidfVectorizer(
         stop_words=stop_words,
@@ -115,12 +122,14 @@ def gen_between_class_cos_sim_heapmaps(name, df, max_features=1000, print_=False
             count += 1
     average = total/count
     if print_:
-        print("{}: average cosine similarity: {}".format(name, average))
+        print("{}: average cosine similarity sum: {}".format(name, average))
+        print()
 
 
 def main(*args):
     show = False
     print_ = True
+    max_features = 5000
 
     # print command line arguments
     for arg in args:
@@ -130,6 +139,8 @@ def main(*args):
             show = utils.str_to_bool(v)
         elif k == 'print':
             print_ = utils.str_to_bool(v)
+        elif k == 'max_features':
+            max_features = int(v)
 
     gen_spotify_df = pd.read_csv(const.GEN_SPOTIFY)
     clean_spotify_df = pd.read_csv(const.CLEAN_SPOTIFY)
@@ -219,15 +230,14 @@ def main(*args):
     # ))
 
     # Cosine similiarity within data
-    max_features = 5000
     order = 1
-    gen_within_data_cos_sim_heapmaps(
+    gen_within_data_cos_sim_heatmaps(
         "Spotify",
         clean_spotify_df,
         max_features=max_features,
         print_=print_,
     )
-    gen_within_data_cos_sim_heapmaps(
+    gen_within_data_cos_sim_heatmaps(
         "Deezer",
         clean_deezer_df,
         max_features=max_features,
@@ -235,14 +245,13 @@ def main(*args):
     )
 
     # Cosine similarity between class
-    max_features = 5000
-    gen_between_class_cos_sim_heapmaps(
+    gen_between_class_cos_sim_heatmaps(
         "Spotify",
         clean_spotify_df,
         max_features=max_features,
         print_=print_
     )
-    gen_between_class_cos_sim_heapmaps(
+    gen_between_class_cos_sim_heatmaps(
         "Deezer",
         clean_deezer_df,
         max_features=max_features,

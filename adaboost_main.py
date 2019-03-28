@@ -150,6 +150,6 @@ param_grid = {
 }
 grid_search(deezer_train_df, const.DEEZER, estimators, param_grid, log=True)
 
-evaluate(deezer_df, const.DEEZER)
-evaluate(spotify_df, const.SPOTIFY)
+# evaluate(deezer_df, const.DEEZER)
+# evaluate(spotify_df, const.SPOTIFY)
 # train_test_score(pd.concat((deezer_df, spotify_df)))
