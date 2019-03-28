@@ -23,9 +23,6 @@ from utils import get_within_data_cos_similarity
 from utils import get_between_class_cos_similarity
 from utils import get_shared_words
 
-# load stop words
-stop_words = get_stop_words()
-
 
 def gen_word_cloud(top_n):
     plt.figure()
@@ -59,6 +56,10 @@ def get_y(df):
 
 
 def main(*args):
+
+    # load stop words
+    stop_words = get_stop_words()
+
     show = False
     print_ = True
 
@@ -70,6 +71,8 @@ def main(*args):
             show = utils.str_to_bool(v)
         elif k == 'print':
             print_ = utils.str_to_bool(v)
+        elif k == 'font_size':
+            plt.rcParams.update({'font.size': int(v)})
 
     gen_spotify_df = pd.read_csv(const.GEN_SPOTIFY)
     clean_spotify_df = pd.read_csv(const.CLEAN_SPOTIFY)
@@ -134,5 +137,5 @@ def main(*args):
         plt.show()
 
 
-if __name__ == 'main':
+if __name__ == '__main__':
     main(*sys.argv[1:])

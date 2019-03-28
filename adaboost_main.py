@@ -133,7 +133,7 @@ param_grid = {
     'tfidf__min_df': [1, 5],
     'tfidf__max_df': [1.0, 0.5],
     'tfidf__ngram_range': [(1, 1), (1, 2), (1, 3)],
-    'tfidf__max_features': [10000, 1000],
+    'tfidf__max_features': [10000, 500],
     'tfidf__stop_words': [stop_words, None],
     'adaboost__n_estimators': [1000, 2000, 3000],
 }
@@ -141,7 +141,7 @@ grid_search(spotify_train_df, const.SPOTIFY, estimators, param_grid, log=True)
 
 # deezer grid search
 param_grid = {
-    'tfidf__min_df': [1, 5, 10],
+    'tfidf__min_df': [1, 5],
     'tfidf__max_df': [1.0, 0.5],
     'tfidf__ngram_range': [(1, 1), (1, 2), (1, 3)],
     'tfidf__max_features': [10000, 500],
