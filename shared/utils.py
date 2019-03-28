@@ -146,6 +146,18 @@ def get_within_data_cos_similarity(df, vectorizer, class_id, limit_size=True, ev
     return cos_sim
 
 
+def get_within_class_cos_similarity(df, vectorizer, class_id):
+    class_df = get_class_based_data(
+        df,
+        class_id,
+        include_other_classes=False,
+        limit_size=False,
+    )
+    vectorized = vectorizer.fit_transform(class_df.lyrics.values).toarray()
+    cos_sim = cosine_similarity(vectorized, vectorized)
+    return cos_sim
+
+
 def get_between_class_cos_similarity(df, vectorizer, primary_class, secondary_class):
     '''
     Get between-class pairwise cosine similarity of primary class and
