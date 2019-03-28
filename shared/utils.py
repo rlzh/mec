@@ -103,7 +103,9 @@ def get_top_idf_ngrams(vectorized, vectorizer, n=10, order=-1):
     vectorized_sorted = np.sort(vectorizer.idf_.flatten())[::order]
     vectorized_sorting = np.argsort(vectorizer.idf_).flatten()[::order]
     top_n = feature_names[vectorized_sorting][:n]
-    top_n_scores = vectorized_sorted[:n].reshape(-1, )
+    top_n_scores = vectorized_sorted[:n].reshape(-1,)
+    if order == 1:
+        top_n_scores = np.reciprocal(top_n_scores)
     # top_n_scores = np.add(top_n_scores, 1.0).reshape(-1,)
     top_n = dict(zip(top_n, top_n_scores))
     return top_n
@@ -119,34 +121,17 @@ def get_top_total_ngrams(vectorized, vectorizer, n=10, order=-1):
     vectorized_sorting = np.argsort(vectorized.toarray().sum(axis=0))[::order]
     top_n = feature_names[vectorized_sorting][:n]
     top_n_scores = vectorized_sorted[:n].reshape(-1,)
+    if order == 1:
+        top_n_scores = np.reciprocal(top_n_scores)
     # top_n_scores = np.add(top_n_scores, 1.0).reshape(-1,)
     top_n = dict(zip(top_n, top_n_scores))
     return top_n
 
 
-def get_within_data_cos_similarity(df, vectorizer, class_id, limit_size=True, even_distrib=True):
-    ''' 
-    Get within-data pairwise cosine similarity of positive and 
-    negative data samples for specified class 
-    '''
-    class_df = get_class_based_data(
-        df,
-        class_id,
-        include_other_classes=True,
-        limit_size=limit_size,
-        even_distrib=even_distrib,
-    )
-    vectorized = vectorizer.fit_transform(class_df.lyrics.values).toarray()
-    y_col = class_df.y.values
-    pos_indices = np.argwhere(y_col == 1)
-    neg_indices = np.argwhere(y_col == -1)
-    pos = np.take(vectorized, pos_indices)
-    neg = np.take(vectorized, neg_indices)
-    cos_sim = cosine_similarity(pos, neg)
-    return cos_sim
-
-
 def get_within_class_cos_similarity(df, vectorizer, class_id):
+    '''
+    Get within-class pairwise cosine similarity
+    '''
     class_df = get_class_based_data(
         df,
         class_id,

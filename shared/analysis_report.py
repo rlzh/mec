@@ -20,7 +20,6 @@ from utils import get_top_idf_ngrams
 from utils import get_top_total_ngrams
 from utils import get_class_based_data
 from utils import get_stop_words
-from utils import get_within_data_cos_similarity
 from utils import get_within_class_cos_similarity
 from utils import get_between_class_cos_similarity
 from utils import get_shared_words
@@ -181,7 +180,7 @@ def main(*args):
         elif k == 'random_state':
             random_state = int(v)
         elif k == 'order':
-            order = int(order)
+            order = int(v)
         elif k == 'wordcloud':
             wordcloud_ = utils.str_to_bool(v)
         elif k == 'wordcloud_n':
