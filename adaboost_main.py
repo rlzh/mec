@@ -2,7 +2,9 @@ import pandas as pd
 import datetime
 import numpy as np
 import time
+import pydotplus
 import sys
+import matplotlib.pyplot as plt
 from shared import utils
 from shared import const
 from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier
@@ -11,18 +13,32 @@ from sklearn.model_selection import cross_val_score, train_test_split
 from sklearn.model_selection import GridSearchCV
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.pipeline import Pipeline
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.decomposition import TruncatedSVD
+from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import Normalizer
 from sklearn.externals.joblib import load, dump
-
+from sklearn.externals.six import StringIO
+from IPython.display import Image
+from sklearn.tree import export_graphviz
+from subprocess import call
 
 # load stop words
 stop_words = utils.get_stop_words()
 
 
-def grid_search(input_df, name, estimators, param_grid, even=False, random_state=None, save_=True):
+def visualize_tree(estimator):
+    dot_data = StringIO()
+    export_graphviz(estimator, out_file=dot_data,
+                    filled=True, rounded=True,
+                    special_characters=True)
+    graph = pydotplus.graph_from_dot_data(dot_data.getvalue())
+    graph.write_png("tree.png")
+    # plt.imshow(Image(graph.create_png()))
+    # plt.axis('off')
+    # plt.show()
+
+
+def grid_search(input_df, name, vectorizer, estimators, param_grid, random_state=None, save_=True, verbose=1, cv=10, even_distrib=False):
 
     f = open("adaboost_log.log", "a")
     if save_:
@@ -31,41 +47,52 @@ def grid_search(input_df, name, estimators, param_grid, even=False, random_state
     best_estimators = []
     t = time.time()
     print()
-    print("Grid search for {}...".format(name))
+    print("Grid search using {}...".format(name))
     print("Param grid: {}".format(param_grid))
+    print("Vectorizer = {}".format(vectorizer))
     print()
+
+    vectorized_df = utils.get_vectorized_df(input_df, vectorizer)
+    print(vectorized_df.shape)
+
     for i in input_df.y.unique():
         print()
         print("Training classifier for Class {}...".format(i))
         t0 = time.time()
         # get dataset for current class
         df = utils.get_class_based_data(
-            input_df,
+            vectorized_df,
             i,
             random_state=random_state,
             include_other_classes=True,
-            limit_size=True,
+            limit_size=False,
+            even_distrib=False,
         )
         pipe = Pipeline(estimators, memory=None)
+
         # run grid search
         gscv = GridSearchCV(
             pipe,
-            cv=10,
-            verbose=1,
+            cv=cv,
+            verbose=verbose,
             iid=False,
             param_grid=param_grid,
-            # scoring='f1',
-            n_jobs=3,
+            scoring='neg_log_loss',
+            n_jobs=-1,
         )
-        gscv.fit(df.lyrics.values, df.y.values.ravel())
-        print("Best params: {}".format(gscv.best_params_))
-        print("Best score: {}".format(gscv.best_score_))
 
+        # gscv.fit(df.lyrics.values, df.y.values.ravel())
+        grid_result = gscv.fit(df.iloc[:, 0:df.shape[1]-1].values, df.y.values.ravel())
+        print("Best: {} using {}".format(gscv.best_score_, gscv.best_params_))
+        means = grid_result.cv_results_['mean_test_score']
+        stds = grid_result.cv_results_['std_test_score']
+        params = grid_result.cv_results_['params']
+        for mean, stdev, param in zip(means, stds, params):
+            print("%f (%f) with: %r" % (mean, stdev, param))
         # get top n-grams
-        tfidf = gscv.best_estimator_.named_steps['tfidf']
-        pos_tfidf = tfidf.fit_transform(df.loc[df.y == 1].lyrics.values)
-        top_n = utils.get_top_idf_ngrams(pos_tfidf, tfidf, n=20)
-        print("Top n-grams: {}".format(top_n))
+        # pos_tfidf = tfidf.fit_transform(df.loc[df.y == 1].lyrics.values)
+        # top_n = utils.get_top_idf_ngrams(pos_tfidf, tfidf, n=20)
+        # print("Top n-grams: {}".format(top_n))
         # save results to file
         if save_:
             # log results
@@ -130,8 +157,11 @@ def main(*args):
     random_state = const.RANDOM_STATE_DEFAULT
     test_size = 0.1
     dataset = ' + '.join([const.SPOTIFY, const.DEEZER])
-    mode = ' + '.join([const.GSCV_MODE, const.EVAL_MODE])
+    mode = ' + '.join([const.GSCV_MODE])
     even_distrib = const.EVEN_DISTRIB_DEFAULT
+    verbose = 1
+    cv = 10
+    even_distrib_train = False
 
     for arg in args:
         k = arg.split("=")[0]
@@ -148,15 +178,23 @@ def main(*args):
             mode = v
         elif k == 'even_distrib':
             even_distrib = utils.str_to_bool(v)
-
+        elif k == 'verbose':
+            verbose = int(v)
+        elif k == 'cv':
+            cv = int(v)
+        elif k == 'even_distrib_train':
+            even_distrib_train = utils.str_to_bool(v)
     print()
     print("-- AdaBoost Config --")
-    print("Save: {}".format(save_))
-    print("Even distribution dataset: {}".format(even_distrib))
-    print("Random state: {}".format(random_state))
-    print("Test size: {}".format(test_size))
-    print("Dataset: {}".format(dataset))
-    print("Mode: {}".format(mode))
+    print("save: {}".format(save_))
+    print("even_distrib: {}".format(even_distrib))
+    print("even_distrib_train: {}".format(even_distrib_train))
+    print("random_state: {}".format(random_state))
+    print("test_size: {}".format(test_size))
+    print("dataset: {}".format(dataset))
+    print("mode: {}".format(mode))
+    print("verbose: {}".format(verbose))
+    print("cv: {}".format(cv))
     print("--------------------")
     print()
 
@@ -169,6 +207,7 @@ def main(*args):
         random_state=random_state,
         test_size=test_size,
     )
+
     deezer_df = pd.read_csv(const.CLEAN_DEEZER)
     if even_distrib == False:
         spotify_df = pd.read_csv(const.CLEAN_UNEVEN_SPOTIFY)
@@ -177,50 +216,65 @@ def main(*args):
         random_state=random_state,
         test_size=test_size,
     )
-
+    
     if const.GSCV_MODE in mode:
+        stump = DecisionTreeClassifier(
+            max_depth=1,
+
+        )
+        vectorizer = CountVectorizer(
+            stop_words='english',
+            ngram_range=(1, 1),
+            min_df=1,
+            # max_features=100,
+            # max_df=.5,
+        )
         estimators = [
-            ('tfidf', TfidfVectorizer(stop_words=stop_words)),
-            # ('svd', TruncatedSVD()),
-            # ('normalize', Normalizer(copy=False)),
-            ('adaboost', AdaBoostClassifier(n_estimators=800)),
+            ('adaboost', AdaBoostClassifier(base_estimator=stump)),
         ]
+
         # spotify grid search
         if const.SPOTIFY in dataset:
             param_grid = {
-                'tfidf__min_df': [5, 10],
-                'tfidf__max_df': [1.0, 0.5],
-                # 'tfidf__ngram_range': [(1, 1), (1, 2), (1, 3)],
-                'tfidf__max_features': [None, 500],
-                # 'tfidf__stop_words': [stop_words, None],
-                'adaboost__n_estimators': [100, 1000],
+                'adaboost__n_estimators': [100,],
+                'adaboost__learning_rate': [0.0001,],
             }
-            grid_search(
+            estimators = grid_search(
                 spotify_train_df,
                 const.SPOTIFY,
+                vectorizer,
                 estimators,
                 param_grid,
                 random_state=random_state,
-                save_=save_
+                save_=save_,
+                verbose=verbose,
+                cv=cv,
+                even_distrib=even_distrib_train,
             )
+            adaboost = estimators[0].named_steps['adaboost']
+            visualize_tree(adaboost.estimators_[0])
 
         # deezer grid search
         if const.DEEZER in dataset:
             param_grid = {
-                'tfidf__min_df': [1, 5],
-                'tfidf__max_df': [1.0, 0.5],
+                # 'tfidf__min_df': [8, 5, 2],
+                # 'tfidf__max_df': [1.0, 0.923, 0.837, ],
                 # 'tfidf__ngram_range': [(1, 1), (1, 2), (1, 3)],
-                # 'tfidf__max_features': [10000, 500],
-                'tfidf__stop_words': [stop_words],  # , None],
-                'adaboost__n_estimators': [500, 1000, 2000],
+                # 'tfidf__max_features': [1000],
+                # 'tfidf__stop_words': [None, stop_words],
+                'adaboost__n_estimators': [750, 1000, 2000],
             }
             grid_search(
                 deezer_train_df,
                 const.DEEZER,
+                vectorizer,
                 estimators,
                 param_grid,
                 random_state=random_state,
-                save_=save_
+                save_=save_,
+                verbose=verbose,
+                cv=cv,
+                even_distrib=even_distrib_train,
             )
 
     if const.EVAL_MODE in mode:

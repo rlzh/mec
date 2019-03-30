@@ -5,6 +5,7 @@ from nltk.corpus import stopwords
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import OneHotEncoder
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.model_selection import train_test_split
 
@@ -100,8 +101,8 @@ def get_top_idf_ngrams(vectorized, vectorizer, n=10, order=-1):
      (key=ngram, value=IDF score)
     '''
     feature_names = np.array(vectorizer.get_feature_names())
-    vectorized_sorted = np.sort(vectorizer.idf_.flatten())[::order]
-    vectorized_sorting = np.argsort(vectorizer.idf_).flatten()[::order]
+    vectorized_sorted = np.sort(vectorizer.idf_)[::order]
+    vectorized_sorting = np.argsort(vectorizer.idf_)[::order]
     top_n = feature_names[vectorized_sorting][:n]
     top_n_scores = vectorized_sorted[:n].reshape(-1,)
     if order == 1:
@@ -128,54 +129,15 @@ def get_top_total_ngrams(vectorized, vectorizer, n=10, order=-1):
     return top_n
 
 
-def get_within_class_cos_similarity(df, vectorizer, class_id):
-    '''
-    Get within-class pairwise cosine similarity
-    '''
-    class_df = get_class_based_data(
-        df,
-        class_id,
-        include_other_classes=False,
-        limit_size=False,
-    )
-    vectorized = vectorizer.fit_transform(class_df.lyrics.values).toarray()
-    cos_sim = cosine_similarity(vectorized, vectorized)
-    return cos_sim
-
-
-def get_between_class_cos_similarity(df, vectorizer, primary_class, secondary_class):
-    '''
-    Get between-class pairwise cosine similarity of primary class and
-    secondary class
-    '''
-    primary_df = get_class_based_data(
-        df,
-        primary_class,
-        include_other_classes=False,
-        limit_size=False,
-    )
-    secondary_df = get_class_based_data(
-        df,
-        secondary_class,
-        include_other_classes=False,
-        limit_size=False,
-    )
-    combined_df = pd.concat([primary_df, secondary_df], ignore_index=True)
-    vectorized = vectorizer.fit_transform(combined_df.lyrics.values)
-    primary_vec = vectorized[: len(primary_df)]
-    # print(len(primary_vec.toarray()) == len(primary_df))
-    secondary_vec = vectorized[len(primary_df):]
-    # print(len(secondary_vec.toarray()) == len(secondary_df))
-    # if primary_vec.shape[1] != secondary_vec.shape[1]:
-    #     vectorizer.max_features = min(
-    #         primary_vec.shape[1],
-    #         secondary_vec.shape[1]
-    #     )
-    #     primary_vec = vectorizer.fit_transform(primary_df.lyrics.values)
-    #     secondary_vec = vectorizer.fit_transform(secondary_df.lyrics.values)
-    # calculate pairwise cosine similarity between all class feature matrices
-    cos_sim = cosine_similarity(primary_vec, secondary_vec)
-    return cos_sim
+def get_average_cos_sim(a, b=None):
+    cos_sim = cosine_similarity(a, b)
+    if b is None:
+        total = np.triu(cos_sim, 1).sum()
+        pairs = (len(cos_sim) - 1) * (len(cos_sim)) / 2
+    else:
+        total = cos_sim.sum()
+        pairs = cos_sim.shape[1] * cos_sim.shape[0]
+    return total / pairs
 
 
 def get_shared_words(lyrics):
@@ -202,7 +164,15 @@ def get_shared_words(lyrics):
     return shared_words, unique_words
 
 
-def get_class_based_data(df, class_id, random_state=None, include_other_classes=True, limit_size=True, even_distrib=False):
+def get_vectorized_df(df, vectorizer):
+    vectorized = vectorizer.fit_transform(df.lyrics.values).toarray()
+    vectorized = vectorized > 0
+    vectorized = vectorized.astype(int)
+    vectorized = pd.DataFrame(vectorized)
+    return pd.concat([vectorized, df.y], axis=1)
+
+
+def get_class_based_data(df, class_id, random_state=None, include_other_classes=False, limit_size=False, even_distrib=False):
     '''
     Random generate equally sized dataset for binary classifiers of specified class
     by limiting the generated dataset size to minimum across all classes in dataset.
@@ -251,7 +221,7 @@ def get_class_based_data(df, class_id, random_state=None, include_other_classes=
         neg_df.y = np.full(neg_df.y.shape, -1)
         result = pd.concat([pos_df, neg_df])
     result.columns = df.columns
-    return result
+    return result.sample(frac=1.0, random_state=random_state)
 
 
 def get_distrib_split(df, test_size=0.1, random_state=None):
