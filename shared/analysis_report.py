@@ -52,16 +52,20 @@ def gen_word_cloud_grid(name, df, vectorizer, n=10, order=-1, random_state=None,
         )
         wordcloud = WordCloud().generate_from_frequencies(frequencies=top_n)
         ax = axs[0, 0]
-        # ax.set_title('Angry')
+        
         if i == 1:
             ax = axs[0, 1]
-            # ax.set_title('Happy')
+            ax.set_title('Happy')
+        elif i == 2:
+            ax = axs[0, 0]
+            ax.set_title('Angry')
         elif i == 3:
             ax = axs[1, 0]
-            # ax.set_title('Sad')
+            ax.set_title('Sad')
         elif i == 4:
             ax = axs[1, 1]
-            # ax.set_title('Relaxed')
+            ax.set_title('Relaxed')
+
         ax.imshow(wordcloud, interpolation="bilinear")
         ax.axis("off")
         keys = []
@@ -108,14 +112,17 @@ def main(*args):
     plot = const.PLOT_DEFAULT
     print_ = const.PRINT_DEFAULT
     max_features = None
-    random_state = None
+    random_state = const.RANDOM_STATE_DEFAULT
     order = -1  # default descending order
     wordcloud_n = None
-    wordcloud_ = True
-    cos_sim = True
+    wordcloud_ = False
+    cos_sim = False
     even_distrib = const.EVEN_DISTRIB_DEFAULT
     plt.rcParams.update({'font.size': const.FONT_SIZE_DEFAULT})
     pre_vec = True
+    limit_size = True
+    min_df = 1
+    max_df = 1.0
 
     # print command line arguments
     for arg in args:
@@ -127,7 +134,7 @@ def main(*args):
             print_ = utils.str_to_bool(v)
         elif k == 'max_features':
             max_features = int(v)
-        elif k == 'stop_words·':
+        elif k == 'stop_words':
             if utils.str_to_bool(v) == False:
                 stop_words = None
         elif k == 'random_state':
@@ -146,6 +153,14 @@ def main(*args):
             even_distrib = utils.str_to_bool(v)
         elif k == 'pre_vec':
             pre_vec = utils.str_to_bool(v)
+        elif k == 'limit_size':
+            limit_size = utils.str_to_bool(v)
+        elif k == 'min_df':
+            min_df = int(v)
+        elif k == 'max_df':
+            max_df = float(v)
+        else:
+            print("Unknown param: {}".format(k))
 
     if print_:
         print()
@@ -159,6 +174,9 @@ def main(*args):
         print("order: {}".format(order))
         print("cos_sim: {}".format(cos_sim))
         print("pre_vec: {}".format(pre_vec))
+        print("limit_size: {}".format(limit_size))
+        print("min_df: {}".format(min_df))
+        print("max_df: {}".format(max_df))
         print("plot: {}".format(plot))
         print("--------------------")
         print()
@@ -211,12 +229,13 @@ def main(*args):
                 len(deezer_shared)/len(deezer_unique)))
             print()
 
+    # cosine similarity
     if cos_sim:
         vectorizer = CountVectorizer(
             stop_words=stop_words,
             ngram_range=(1, 1),
-            # min_df=5,
-            max_df=1.0,
+            min_df=min_df,
+            max_df=max_df,
             max_features=max_features
         )
         datasets = [
@@ -234,6 +253,8 @@ def main(*args):
                     i,
                     random_state=random_state,
                     include_other_classes=True,
+                    even_distrib=True,
+                    limit_size=limit_size,
                 )
                 if pre_vec == False:
                     class_df = utils.get_vectorized_df(class_df, vectorizer)
@@ -250,7 +271,10 @@ def main(*args):
                 ave_between = utils.get_average_cos_sim(pos_df.values, neg_df.values)
                 print("average between cosine similarity: {}".format(ave_between))
                 print()
+    
+    # grid search eval
     if plot:
+        plt.draw()
         plt.show()
 
 

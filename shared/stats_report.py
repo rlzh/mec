@@ -144,6 +144,7 @@ def main(*args):
     plt.xticks(x)
     plt.legend()
     if plot:
+        plt.draw()
         plt.show()
 
 

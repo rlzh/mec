@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 import nltk
 from nltk.corpus import stopwords
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -170,12 +171,7 @@ def get_vectorized_df(df, vectorizer):
     vectorized = vectorized > 0
     vectorized = vectorized.astype(int)
     vectorized = pd.DataFrame(vectorized)
-    cols = vectorized.columns.tolist() + ['y']
-    vectorized.reset_index(drop=True, inplace=True)
-    df.reset_index(drop=True, inplace=True)
-    result = pd.concat([vectorized, df.y], axis=1, ignore_index=True)
-    result.columns = cols
-    return result
+    return pd.concat([vectorized, df.y], axis=1)
 
 
 def get_class_based_data(df, class_id, random_state=None, include_other_classes=False, limit_size=False, even_distrib=False):
@@ -227,12 +223,13 @@ def get_class_based_data(df, class_id, random_state=None, include_other_classes=
         neg_df['y'] = np.full(neg_df.y.shape, -1)
         result = pd.concat([pos_df, neg_df])
     result.columns = df.columns
-    # print(result.head())
-    return result  # .sample(frac=1.0, random_state=random_state)
+    result = result.sample(frac=1.0, random_state=random_state)
+    result.reset_index(drop=True, inplace=True)
+    return result
 
 
 def get_distrib_split(df, test_size=0.1, random_state=None):
-    ''' 
+    '''
     Returns split of dataset with even distribution of
     each class in train and test sets. Returns as pandas DF
     '''
@@ -261,3 +258,33 @@ def get_distrib_split(df, test_size=0.1, random_state=None):
     train_df = pd.DataFrame(train, columns=df.columns)
     test_df = pd.DataFrame(test, columns=df.columns)
     return train_df, test_df
+
+
+def get_scoring_to_param(grid_result, param_name):
+    mean_test_scores = grid_result.cv_results_['mean_test_score']
+    param_combos = grid_result.cv_results_['params']
+    scores_to_combos = list(zip(mean_test_scores, param_combos))
+    # pair up param to scores
+    param_to_score = []
+    param_value_set = set()
+    for i in range(len(scores_to_combos)):
+        current_score = scores_to_combos[i][0]
+        current_combo = scores_to_combos[i][1]
+        # avoid recalculating scores
+        if current_combo[param_name] in param_value_set:
+            continue
+        param_value_set.add(current_combo[param_name])
+        n = 1
+        for score, combo in scores_to_combos:
+            if combo[param_name] == current_combo[param_name]:
+                if combo != current_combo:
+                    current_score += score
+                    n += 1
+        ave_score = current_score / n
+        param_to_score.append([current_combo[param_name], ave_score])
+        print("{}: {}".format(current_combo[param_name], ave_score))
+    # sort by param value in ascending order
+    param_to_score = np.array(param_to_score)
+    param_to_score = param_to_score[param_to_score[:, 0].argsort()]
+    # transpose for plotting
+    return param_to_score.T

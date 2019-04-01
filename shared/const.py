@@ -50,9 +50,11 @@ ADABOOST_MODEL_DIR = MODEL_DIR+"/adaboost"
 
 GSCV_MODE = "gs"
 EVAL_MODE = "eval"
+COS_SIM_MODE = "cos_sim"
+WORDCLOUD_MODE = "wordcloud"
 
 # some shared default config values
-EVEN_DISTRIB_DEFAULT = True
+EVEN_DISTRIB_DEFAULT = False
 PLOT_DEFAULT = False
 PRINT_DEFAULT = True
 RANDOM_STATE_DEFAULT = 0
