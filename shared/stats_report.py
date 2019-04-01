@@ -87,6 +87,7 @@ def main(*args):
     if print_:
         print("Spotify missing per col: \n{}".format(
             clean_spotify_df.isna().sum()))
+        print("Spotify shape: {}".format(clean_spotify_df))
         print()
 
     gen_deezer_df = pd.read_csv(const.GEN_DEEZER)
@@ -96,6 +97,7 @@ def main(*args):
     if print_:
         print("Deezer missing per col: \n{}".format(
             clean_deezer_df.isna().sum()))
+        print("Deezer shape: {}".format(clean_deezer_df))
         print()
 
     # get info on datasets
@@ -132,16 +134,17 @@ def main(*args):
 
     # class distrib hist
     plt.figure()
-    x = np.array([1, 2, 3, 4])
+    x = np.array([i+1 for i in range(len(clean_spotify_df.y.unique()))])
 
     plt.title("Spotify vs Deezer: Class Distribution")
     plt.bar(x - 0.125, get_y(clean_spotify_df),
             width=0.25, align='center', label=const.SPOTIFY)
     plt.bar(x + 0.125, get_y(clean_deezer_df),
             width=0.25, align='center', label=const.DEEZER)
-    plt.xticks(x, ["Happy", "Angry", "Sad", "Relaxed"])
+    plt.xticks(x)
     plt.legend()
     if plot:
+        plt.draw()
         plt.show()
 
 

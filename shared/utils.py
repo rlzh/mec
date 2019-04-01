@@ -1,10 +1,12 @@
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 import nltk
 from nltk.corpus import stopwords
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import OneHotEncoder
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.model_selection import train_test_split
 
@@ -15,8 +17,9 @@ def str_to_bool(s):
 
 def get_stop_words():
     ''' Builds and returns stopswords list from nltk and local text file '''
-    nltk.download('stopwords')
-    stop_words = set(stopwords.words('english'))
+    stop_words = set()
+    # nltk.download('stopwords')
+    # stop_words = set(stopwords.words('english'))
     f = open("stopwords.txt", 'r')
     for l in f:
         if len(l.strip()) > 0:
@@ -52,9 +55,9 @@ def get_word_counts(lyrics, print_=False):
 
 
 def get_unique_counts(lyrics, print_=False):
-    ''' 
-    Calculates the unique word count for each lyric and returns 
-    result as array 
+    '''
+    Calculates the unique word count for each lyric and returns
+    result as array
     '''
     unique_count = np.empty(shape=(len(lyrics),))
     for i in range(len(lyrics)):
@@ -95,13 +98,13 @@ def get_emotion_counts(df, print_=False):
 
 
 def get_top_idf_ngrams(vectorized, vectorizer, n=10, order=-1):
-    ''' 
+    '''
     Returns the top ngrams according to IDF as dictionary
      (key=ngram, value=IDF score)
     '''
     feature_names = np.array(vectorizer.get_feature_names())
-    vectorized_sorted = np.sort(vectorizer.idf_.flatten())[::order]
-    vectorized_sorting = np.argsort(vectorizer.idf_).flatten()[::order]
+    vectorized_sorted = np.sort(vectorizer.idf_)[::order]
+    vectorized_sorting = np.argsort(vectorizer.idf_)[::order]
     top_n = feature_names[vectorized_sorting][:n]
     top_n_scores = vectorized_sorted[:n].reshape(-1,)
     if order == 1:
@@ -112,8 +115,8 @@ def get_top_idf_ngrams(vectorized, vectorizer, n=10, order=-1):
 
 
 def get_top_total_ngrams(vectorized, vectorizer, n=10, order=-1):
-    ''' 
-    Returns the top ngrams according to sum of columns as 
+    '''
+    Returns the top ngrams according to sum of columns as
     dictionary (key=ngram, value=sum of column)
     '''
     feature_names = np.array(vectorizer.get_feature_names())
@@ -128,58 +131,19 @@ def get_top_total_ngrams(vectorized, vectorizer, n=10, order=-1):
     return top_n
 
 
-def get_within_class_cos_similarity(df, vectorizer, class_id):
-    '''
-    Get within-class pairwise cosine similarity
-    '''
-    class_df = get_class_based_data(
-        df,
-        class_id,
-        include_other_classes=False,
-        limit_size=False,
-    )
-    vectorized = vectorizer.fit_transform(class_df.lyrics.values).toarray()
-    cos_sim = cosine_similarity(vectorized, vectorized)
-    return cos_sim
-
-
-def get_between_class_cos_similarity(df, vectorizer, primary_class, secondary_class):
-    '''
-    Get between-class pairwise cosine similarity of primary class and
-    secondary class
-    '''
-    primary_df = get_class_based_data(
-        df,
-        primary_class,
-        include_other_classes=False,
-        limit_size=False,
-    )
-    secondary_df = get_class_based_data(
-        df,
-        secondary_class,
-        include_other_classes=False,
-        limit_size=False,
-    )
-    combined_df = pd.concat([primary_df, secondary_df], ignore_index=True)
-    vectorized = vectorizer.fit_transform(combined_df.lyrics.values)
-    primary_vec = vectorized[: len(primary_df)]
-    # print(len(primary_vec.toarray()) == len(primary_df))
-    secondary_vec = vectorized[len(primary_df):]
-    # print(len(secondary_vec.toarray()) == len(secondary_df))
-    # if primary_vec.shape[1] != secondary_vec.shape[1]:
-    #     vectorizer.max_features = min(
-    #         primary_vec.shape[1],
-    #         secondary_vec.shape[1]
-    #     )
-    #     primary_vec = vectorizer.fit_transform(primary_df.lyrics.values)
-    #     secondary_vec = vectorizer.fit_transform(secondary_df.lyrics.values)
-    # calculate pairwise cosine similarity between all class feature matrices
-    cos_sim = cosine_similarity(primary_vec, secondary_vec)
-    return cos_sim
+def get_average_cos_sim(a, b=None):
+    cos_sim = cosine_similarity(a, b)
+    if b is None:
+        total = np.triu(cos_sim, 1).sum()
+        pairs = (len(cos_sim) - 1) * (len(cos_sim)) / 2
+    else:
+        total = cos_sim.sum()
+        pairs = cos_sim.shape[1] * cos_sim.shape[0]
+    return total / pairs
 
 
 def get_shared_words(lyrics):
-    ''' 
+    '''
     Return shared words & unique ngrams over all classes in lyrics
     '''
     shared_words = set()
@@ -202,7 +166,15 @@ def get_shared_words(lyrics):
     return shared_words, unique_words
 
 
-def get_class_based_data(df, class_id, random_state=None, include_other_classes=True, limit_size=True, even_distrib=False):
+def get_vectorized_df(df, vectorizer):
+    vectorized = vectorizer.fit_transform(df.lyrics.values).toarray()
+    vectorized = vectorized > 0
+    vectorized = vectorized.astype(int)
+    vectorized = pd.DataFrame(vectorized)
+    return pd.concat([vectorized, df.y], axis=1)
+
+
+def get_class_based_data(df, class_id, random_state=None, include_other_classes=False, limit_size=False, even_distrib=False):
     '''
     Random generate equally sized dataset for binary classifiers of specified class
     by limiting the generated dataset size to minimum across all classes in dataset.
@@ -244,18 +216,20 @@ def get_class_based_data(df, class_id, random_state=None, include_other_classes=
         n=max_size,
         random_state=random_state
     )
-    pos_df.y = np.full(pos_df.y.shape, 1)
+    pos_df['y'] = np.full(pos_df.y.shape, 1)
     result = pos_df
     if include_other_classes:
         # print(neg_df.y.value_counts())
-        neg_df.y = np.full(neg_df.y.shape, -1)
+        neg_df['y'] = np.full(neg_df.y.shape, -1)
         result = pd.concat([pos_df, neg_df])
     result.columns = df.columns
+    result = result.sample(frac=1.0, random_state=random_state)
+    result.reset_index(drop=True, inplace=True)
     return result
 
 
 def get_distrib_split(df, test_size=0.1, random_state=None):
-    ''' 
+    '''
     Returns split of dataset with even distribution of
     each class in train and test sets. Returns as pandas DF
     '''
@@ -284,3 +258,33 @@ def get_distrib_split(df, test_size=0.1, random_state=None):
     train_df = pd.DataFrame(train, columns=df.columns)
     test_df = pd.DataFrame(test, columns=df.columns)
     return train_df, test_df
+
+
+def get_scoring_to_param(grid_result, param_name):
+    mean_test_scores = grid_result.cv_results_['mean_test_score']
+    param_combos = grid_result.cv_results_['params']
+    scores_to_combos = list(zip(mean_test_scores, param_combos))
+    # pair up param to scores
+    param_to_score = []
+    param_value_set = set()
+    for i in range(len(scores_to_combos)):
+        current_score = scores_to_combos[i][0]
+        current_combo = scores_to_combos[i][1]
+        # avoid recalculating scores
+        if current_combo[param_name] in param_value_set:
+            continue
+        param_value_set.add(current_combo[param_name])
+        n = 1
+        for score, combo in scores_to_combos:
+            if combo[param_name] == current_combo[param_name]:
+                if combo != current_combo:
+                    current_score += score
+                    n += 1
+        ave_score = current_score / n
+        param_to_score.append([current_combo[param_name], ave_score])
+        print("{}: {}".format(current_combo[param_name], ave_score))
+    # sort by param value in ascending order
+    param_to_score = np.array(param_to_score)
+    param_to_score = param_to_score[param_to_score[:, 0].argsort()]
+    # transpose for plotting
+    return param_to_score.T

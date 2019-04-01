@@ -4,6 +4,7 @@ import numpy as np
 import progressbar as pbar
 import const
 import sys
+import math
 from preproc import get_indices_from_lang, get_indices_from_lang_whole
 from preproc import get_indices_from_unique_words
 from preproc import get_indices_from_word_count
@@ -48,10 +49,10 @@ def clean(csv_path, word_count_range=(50, 800), unique_words_range=(20, 350)):
     print()
     df.reset_index(drop=True, inplace=True)
 
-    # remove any song with lyrics that do not have special lyric tags (e.g. [VERSE 1], [CHORUS], etc.)
-    # remove_indices = get_indices_from_tags(df.lyrics.values)
-    # df.drop(index=remove_indices, inplace=True)
-    # df.reset_index(drop=True, inplace=True)
+    # remove any song with lyrics that do not have special lyric tags(e.g. [VERSE 1], [CHORUS], etc.)
+    remove_indices = get_indices_from_tags(df.lyrics.values)
+    df.drop(index=remove_indices, inplace=True)
+    df.reset_index(drop=True, inplace=True)
 
     # remove tags and punctuations from lyrics
     clean_lyric_text(df.lyrics.values)
@@ -72,7 +73,7 @@ def clean(csv_path, word_count_range=(50, 800), unique_words_range=(20, 350)):
     df.drop(index=remove_indices, inplace=True)
     df.reset_index(drop=True, inplace=True)
 
-    # remove any song with characters that are not alphanumeric with '
+    # remove any song with characters that are not alphanumeric with
     remove_indices = get_indices_from_char(df.lyrics.values)
     df.drop(index=remove_indices, inplace=True)
     df.reset_index(drop=True, inplace=True)
@@ -88,7 +89,13 @@ def clean(csv_path, word_count_range=(50, 800), unique_words_range=(20, 350)):
     return df
 
 
-def gen_labels(df, cross_over_val=0, thresh=0, class_size=-1, class_distrib={}):
+def angle_between(p1, p2):
+    ang1 = np.arctan2(*p1[::-1])
+    ang2 = np.arctan2(*p2[::-1])
+    return np.rad2deg((ang1 - ang2) % (2 * np.pi))
+
+
+def gen_labels(df, cross_over_val=0, thresh=0, class_size=-1, class_distrib={}, class_per_quadrant=1):
     ''' Dataset labelling '''
     # create emotion class label (i.e. Y) based on arousal & valence
     y = np.empty(shape=(df.shape[0], 2))
@@ -101,9 +108,12 @@ def gen_labels(df, cross_over_val=0, thresh=0, class_size=-1, class_distrib={}):
     # Quad 4: V >= cross_over_val & A < cross_over_val -> Relaxed
     remove_indices = []
     print("Labelling songs...")
+    p0 = (1, 0)
+    divisor = 90 / class_per_quadrant
     for i in pbar.progressbar(range(va_list.shape[0])):
         v = float(va_list[i, 0])
         a = float(va_list[i, 1])
+        alpha = angle_between((v-cross_over_val, a-cross_over_val), p0)
 
         if v > cross_over_val and a >= cross_over_val:
             y[i, 0] = 1
@@ -113,6 +123,9 @@ def gen_labels(df, cross_over_val=0, thresh=0, class_size=-1, class_distrib={}):
             y[i, 0] = 3
         elif v >= cross_over_val and a < cross_over_val:
             y[i, 0] = 4
+
+        # determine class label based on angle between axis
+        y[i, 0] = int(alpha / divisor) + 1
 
         # remove if euclidean distance below threshold
         y[i, 1] = ((v - cross_over_val)**2 + (a - cross_over_val)**2)**.5
@@ -156,8 +169,9 @@ def main(*args):
 
     dry_run = False
     class_size = -1
-    spotify_thresh = 0.2
-    deezer_thresh = 0.8
+    spotify_thresh = 0
+    deezer_thresh = 0
+    class_per_quad = 1
 
     for arg in args:
         k = arg.split("=")[0]
@@ -170,13 +184,16 @@ def main(*args):
             spotify_thresh = float(v)
         elif k == 'deezer_thresh':
             deezer_thresh = float(v)
+        elif k == 'class_per_quad':
+            class_per_quad = int(v)
 
     print()
     print("--- Clean config ---")
-    print("Dry run: {}".format(dry_run))
-    print("Class size: {}".format(class_size))
-    print("Spotify thresh: {}".format(spotify_thresh))
-    print("Deezer thresh: {}".format(deezer_thresh))
+    print("dry_run: {}".format(dry_run))
+    print("class_size: {}".format(class_size))
+    print("spotify_thresh: {}".format(spotify_thresh))
+    print("deezer_thresh: {}".format(deezer_thresh))
+    print("class_per_quad: {}".format(class_per_quad))
     print("--------------------")
     print()
 
@@ -187,6 +204,7 @@ def main(*args):
         cross_over_val=0.5,
         thresh=spotify_thresh,
         class_size=class_size,
+        class_per_quadrant=class_per_quad,
     )
     check_dup(df, "Error: Duplicates!!!!!!!!!!!!!!!!!")
 
@@ -210,6 +228,7 @@ def main(*args):
         cross_over_val=0,
         thresh=deezer_thresh,
         class_size=class_size,
+        class_per_quadrant=class_per_quad,
     )
     check_dup(df, "Error: Duplicates!!!!!!!!!!!!!!!!!")
     if dry_run == False:
