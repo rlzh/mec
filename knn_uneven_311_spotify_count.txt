@@ -1,0 +1,48 @@
+---------------------start of topic # 2 -------------------
+topics: 2, RF score average of 4 models: 0.5343426501035198
+---------------------start of topic # 3 -------------------
+topics: 3, RF score average of 4 models: 0.5339958592132505
+---------------------start of topic # 4 -------------------
+topics: 4, RF score average of 4 models: 0.5180538302277432
+---------------------start of topic # 5 -------------------
+topics: 5, RF score average of 4 models: 0.5278778467908903
+---------------------start of topic # 6 -------------------
+topics: 6, RF score average of 4 models: 0.5309523809523811
+---------------------start of topic # 7 -------------------
+topics: 7, RF score average of 4 models: 0.5436749482401656
+---------------------start of topic # 2 -------------------
+topics: 2, RF score average of 4 models: 0.5260041407867495
+---------------------start of topic # 3 -------------------
+topics: 3, RF score average of 4 models: 0.5318167701863354
+---------------------start of topic # 4 -------------------
+topics: 4, RF score average of 4 models: 0.5224016563146998
+---------------------start of topic # 5 -------------------
+topics: 5, RF score average of 4 models: 0.5372722567287784
+---------------------start of topic # 6 -------------------
+topics: 6, RF score average of 4 models: 0.5329554865424431
+---------------------start of topic # 7 -------------------
+topics: 7, RF score average of 4 models: 0.5462008281573499
+---------------------start of topic # 8 -------------------
+topics: 8, RF score average of 4 models: 0.5484575569358178
+---------------------start of topic # 9 -------------------
+topics: 9, RF score average of 4 models: 0.552603519668737
+---------------------start of topic # 10 -------------------
+topics: 10, RF score average of 4 models: 0.5368944099378883
+---------------------start of topic # 11 -------------------
+topics: 11, RF score average of 4 models: 0.552075569358178
+---------------------start of topic # 12 -------------------
+topics: 12, RF score average of 4 models: 0.5549792960662525
+---------------------start of topic # 13 -------------------
+topics: 13, RF score average of 4 models: 0.5640631469979296
+---------------------start of topic # 14 -------------------
+topics: 14, RF score average of 4 models: 0.5336231884057971
+---------------------start of topic # 15 -------------------
+topics: 15, RF score average of 4 models: 0.5508747412008281
+---------------------start of topic # 16 -------------------
+topics: 16, RF score average of 4 models: 0.5412008281573498
+---------------------start of topic # 17 -------------------
+topics: 17, RF score average of 4 models: 0.5505797101449276
+---------------------start of topic # 18 -------------------
+topics: 18, RF score average of 4 models: 0.5496376811594202
+---------------------start of topic # 19 -------------------
+topics: 19, RF score average of 4 models: 0.5534627329192546

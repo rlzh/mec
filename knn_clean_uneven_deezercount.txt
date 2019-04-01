@@ -1,0 +1,36 @@
+---------------------start of topic # 2 -------------------
+topics: 2, KNN score average of 4 models: 0.5096578366445916
+---------------------start of topic # 3 -------------------
+topics: 3, KNN score average of 4 models: 0.518046357615894
+---------------------start of topic # 4 -------------------
+topics: 4, KNN score average of 4 models: 0.5184878587196469
+---------------------start of topic # 5 -------------------
+topics: 5, KNN score average of 4 models: 0.525551876379691
+---------------------start of topic # 6 -------------------
+topics: 6, KNN score average of 4 models: 0.5254415011037528
+---------------------start of topic # 7 -------------------
+topics: 7, KNN score average of 4 models: 0.5259381898454747
+---------------------start of topic # 8 -------------------
+topics: 8, KNN score average of 4 models: 0.527262693156733
+---------------------start of topic # 9 -------------------
+topics: 9, KNN score average of 4 models: 0.529028697571744
+---------------------start of topic # 10 -------------------
+topics: 10, KNN score average of 4 models: 0.5266004415011037
+---------------------start of topic # 11 -------------------
+topics: 11, KNN score average of 4 models: 0.5293046357615894
+---------------------start of topic # 12 -------------------
+topics: 12, KNN score average of 4 models: 0.5310154525386314
+---------------------start of topic # 13 -------------------
+topics: 13, KNN score average of 4 models: 0.5280353200883002
+---------------------start of topic # 14 -------------------
+topics: 14, KNN score average of 4 models: 0.5253863134657837
+---------------------start of topic # 15 -------------------
+topics: 15, KNN score average of 4 models: 0.5278145695364238
+---------------------start of topic # 16 -------------------
+topics: 16, KNN score average of 4 models: 0.526158940397351
+---------------------start of topic # 17 -------------------
+topics: 17, KNN score average of 4 models: 0.5309602649006623
+---------------------start of topic # 18 -------------------
+topics: 18, KNN score average of 4 models: 0.5266556291390729
+---------------------start of topic # 19 -------------------
+topics: 19, KNN score average of 4 models: 0.5295253863134658
