@@ -16,8 +16,9 @@ def str_to_bool(s):
 
 def get_stop_words():
     ''' Builds and returns stopswords list from nltk and local text file '''
-    nltk.download('stopwords')
-    stop_words = set(stopwords.words('english'))
+    stop_words = set()
+    # nltk.download('stopwords')
+    # stop_words = set(stopwords.words('english'))
     f = open("stopwords.txt", 'r')
     for l in f:
         if len(l.strip()) > 0:
@@ -53,9 +54,9 @@ def get_word_counts(lyrics, print_=False):
 
 
 def get_unique_counts(lyrics, print_=False):
-    ''' 
-    Calculates the unique word count for each lyric and returns 
-    result as array 
+    '''
+    Calculates the unique word count for each lyric and returns
+    result as array
     '''
     unique_count = np.empty(shape=(len(lyrics),))
     for i in range(len(lyrics)):
@@ -96,7 +97,7 @@ def get_emotion_counts(df, print_=False):
 
 
 def get_top_idf_ngrams(vectorized, vectorizer, n=10, order=-1):
-    ''' 
+    '''
     Returns the top ngrams according to IDF as dictionary
      (key=ngram, value=IDF score)
     '''
@@ -113,8 +114,8 @@ def get_top_idf_ngrams(vectorized, vectorizer, n=10, order=-1):
 
 
 def get_top_total_ngrams(vectorized, vectorizer, n=10, order=-1):
-    ''' 
-    Returns the top ngrams according to sum of columns as 
+    '''
+    Returns the top ngrams according to sum of columns as
     dictionary (key=ngram, value=sum of column)
     '''
     feature_names = np.array(vectorizer.get_feature_names())
@@ -141,7 +142,7 @@ def get_average_cos_sim(a, b=None):
 
 
 def get_shared_words(lyrics):
-    ''' 
+    '''
     Return shared words & unique ngrams over all classes in lyrics
     '''
     shared_words = set()
@@ -169,7 +170,12 @@ def get_vectorized_df(df, vectorizer):
     vectorized = vectorized > 0
     vectorized = vectorized.astype(int)
     vectorized = pd.DataFrame(vectorized)
-    return pd.concat([vectorized, df.y], axis=1)
+    cols = vectorized.columns.tolist() + ['y']
+    vectorized.reset_index(drop=True, inplace=True)
+    df.reset_index(drop=True, inplace=True)
+    result = pd.concat([vectorized, df.y], axis=1, ignore_index=True)
+    result.columns = cols
+    return result
 
 
 def get_class_based_data(df, class_id, random_state=None, include_other_classes=False, limit_size=False, even_distrib=False):
@@ -214,14 +220,15 @@ def get_class_based_data(df, class_id, random_state=None, include_other_classes=
         n=max_size,
         random_state=random_state
     )
-    pos_df.y = np.full(pos_df.y.shape, 1)
+    pos_df['y'] = np.full(pos_df.y.shape, 1)
     result = pos_df
     if include_other_classes:
         # print(neg_df.y.value_counts())
-        neg_df.y = np.full(neg_df.y.shape, -1)
+        neg_df['y'] = np.full(neg_df.y.shape, -1)
         result = pd.concat([pos_df, neg_df])
     result.columns = df.columns
-    return result.sample(frac=1.0, random_state=random_state)
+    # print(result.head())
+    return result  # .sample(frac=1.0, random_state=random_state)
 
 
 def get_distrib_split(df, test_size=0.1, random_state=None):

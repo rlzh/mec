@@ -52,7 +52,7 @@ GSCV_MODE = "gs"
 EVAL_MODE = "eval"
 
 # some shared default config values
-EVEN_DISTRIB_DEFAULT = False
+EVEN_DISTRIB_DEFAULT = True
 PLOT_DEFAULT = False
 PRINT_DEFAULT = True
 RANDOM_STATE_DEFAULT = 0

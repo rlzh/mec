@@ -79,9 +79,9 @@ def clean(csv_path, word_count_range=(50, 800), unique_words_range=(20, 350)):
     df.reset_index(drop=True, inplace=True)
 
     # remove any song that is not english
-    # remove_indices = get_indices_from_lang_whole(df.lyrics.values)
-    # df.drop(index=remove_indices, inplace=True)
-    # df.reset_index(drop=True, inplace=True)
+    remove_indices = get_indices_from_lang_whole(df.lyrics.values)
+    df.drop(index=remove_indices, inplace=True)
+    df.reset_index(drop=True, inplace=True)
 
     print("Total removed: {}".format(start_rows - df.shape[0]))
     print("Cleaned shape: {}".format(df.shape))
@@ -124,6 +124,7 @@ def gen_labels(df, cross_over_val=0, thresh=0, class_size=-1, class_distrib={}, 
         elif v >= cross_over_val and a < cross_over_val:
             y[i, 0] = 4
 
+        # determine class label based on angle between axis
         y[i, 0] = int(alpha / divisor) + 1
 
         # remove if euclidean distance below threshold
