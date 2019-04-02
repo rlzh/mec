@@ -36,7 +36,7 @@ def gen_word_cloud_grid(name, df, vectorizer, n=10, order=-1, random_state=None,
             df,
             i,
             random_state=random_state,
-            include_other_classes=False,
+            include_other_classes=True,
             limit_size=False,
         )
 
@@ -119,7 +119,7 @@ def main(*args):
     cos_sim = False
     even_distrib = const.EVEN_DISTRIB_DEFAULT
     plt.rcParams.update({'font.size': const.FONT_SIZE_DEFAULT})
-    pre_vec = True
+    pre_vec = False
     limit_size = True
     min_df = 1
     max_df = 1.0
@@ -159,6 +159,8 @@ def main(*args):
             min_df = int(v)
         elif k == 'max_df':
             max_df = float(v)
+            if max_df > 1:
+                max_df = int(max_df)
         else:
             print("Unknown param: {}".format(k))
 
@@ -191,18 +193,21 @@ def main(*args):
     if even_distrib == False:
         clean_deezer_df = pd.read_csv(const.CLEAN_UNEVEN_DEEZER)
 
+    vectorizer = CountVectorizer(
+        stop_words=stop_words,
+        ngram_range=(1, 1),
+        min_df=min_df,
+        max_df=max_df,
+        max_features=max_features,
+        binary=True,
+    )
+
     # word clouds
     if wordcloud_:
-        count = CountVectorizer(
-            stop_words=stop_words,
-            max_features=max_features,
-            ngram_range=(1, 1),
-        )
-
         top_n = gen_word_cloud_grid(
             const.SPOTIFY,
             clean_spotify_df,
-            vectorizer=count,
+            vectorizer=vectorizer,
             n=wordcloud_n,
             order=order,
             random_state=random_state,
@@ -213,7 +218,7 @@ def main(*args):
         top_n = gen_word_cloud_grid(
             const.DEEZER,
             clean_deezer_df,
-            vectorizer=count,
+            vectorizer=vectorizer,
             n=wordcloud_n,
             order=order,
             random_state=random_state,
@@ -231,13 +236,6 @@ def main(*args):
 
     # cosine similarity
     if cos_sim:
-        vectorizer = CountVectorizer(
-            stop_words=stop_words,
-            ngram_range=(1, 1),
-            min_df=min_df,
-            max_df=max_df,
-            max_features=max_features
-        )
         datasets = [
             (const.SPOTIFY, clean_spotify_df),
             (const.DEEZER, clean_deezer_df),
@@ -253,7 +251,7 @@ def main(*args):
                     i,
                     random_state=random_state,
                     include_other_classes=True,
-                    even_distrib=True,
+                    even_distrib=False,
                     limit_size=limit_size,
                 )
                 if pre_vec == False:
@@ -272,6 +270,7 @@ def main(*args):
                 print("average between cosine similarity: {}".format(ave_between))
                 print()
     
+
     # grid search eval
     if plot:
         plt.draw()
