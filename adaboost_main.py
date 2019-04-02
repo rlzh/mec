@@ -7,8 +7,7 @@ import sys
 import matplotlib.pyplot as plt
 from shared import utils
 from shared import const
-from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier
-from sklearn.neighbors import KNeighborsClassifier
+from sklearn.ensemble import AdaBoostClassifier
 from sklearn.model_selection import cross_val_score, train_test_split
 from sklearn.model_selection import GridSearchCV
 from sklearn.tree import DecisionTreeClassifier
@@ -22,9 +21,6 @@ from IPython.display import Image
 from sklearn.tree import export_graphviz
 from subprocess import call
 
-# load stop words
-stop_words = utils.get_stop_words()
-
 
 def visualize_tree(estimator):
     dot_data = StringIO()
@@ -36,97 +32,6 @@ def visualize_tree(estimator):
     # plt.imshow(Image(graph.create_png()))
     # plt.axis('off')
     # plt.show()
-
-
-def grid_search(input_df, name, vectorizer, estimators, param_grid,
-                random_state=None, save_=True, verbose=1, cv=10, params_to_plot=[],
-                scoring="accuracy"):
-
-    f = open("adaboost_log.log", "a")
-    if save_:
-        f.write("\n==== {} - {} {}====\n".format(str(datetime.datetime.now()),
-                                                 name, input_df.shape))
-    best_estimators = []
-    t = time.time()
-    print()
-    print("Grid search using {}...".format(name))
-    print("Param grid: {}".format(param_grid))
-    print("Vectorizer = {}".format(vectorizer))
-    print()
-
-    # input_df = utils.get_vectorized_df(input_df, vectorizer)
-    # print(input_df.shape)
-
-    for i in [2]:  # input_df.y.unique():
-        print()
-        print("Training classifier for Class {}...".format(i))
-        t0 = time.time()
-        # get dataset for current class
-        df = utils.get_class_based_data(
-            input_df,
-            i,
-            random_state=random_state,
-            include_other_classes=True,
-            limit_size=True,
-            even_distrib=False,
-        )
-        pipe = Pipeline(estimators, memory=None)
-
-        # run grid search
-        gscv = GridSearchCV(
-            pipe,
-            cv=cv,
-            verbose=verbose,
-            iid=False,
-            param_grid=param_grid,
-            scoring=scoring,
-            n_jobs=-1,
-        )
-
-        grid_result = gscv.fit(df.lyrics.values, df.y.values.ravel())
-        # grid_result = gscv.fit(
-        #     df.iloc[:, 0:df.shape[1]-1].values, df.y.values.ravel())
-        print("Best: {} using {}".format(gscv.best_score_, gscv.best_params_))
-        means = grid_result.cv_results_['mean_test_score']
-        stds = grid_result.cv_results_['std_test_score']
-        params = grid_result.cv_results_['params']
-        for mean, stdev, param in zip(means, stds, params):
-            print("%f (%f) with: %r" % (mean, stdev, param))
-        # get top n-grams
-        # pos_tfidf = tfidf.fit_transform(df.loc[df.y == 1].lyrics.values)
-        # top_n = utils.get_top_idf_ngrams(pos_tfidf, tfidf, n=20)
-        # print("Top n-grams: {}".format(top_n))
-        # save results to file
-        if save_:
-            # log
-            f.write("Class: {}\n".format(i))
-            f.write("Best params: {}\n".format(gscv.best_params_))
-            f.write("Best score: {}\n".format(gscv.best_score_))
-            # f.write("Top {} n-grams based on tfidf score: {}\n".format(20, top_n))
-            f.write("Time: {}\n\n".format(time.time()-t0))
-            f.flush()
-            # save model
-            save_path = "{}/{}_{}.sav".format(
-                const.ADABOOST_MODEL_DIR, name, i)
-            dump(gscv.best_estimator_, save_path)
-
-        best_estimators.append(gscv.best_estimator_)
-
-        for param_name in params_to_plot:
-            param_to_score = utils.get_scoring_to_param(
-                grid_result,
-                param_name
-            )
-            plt.figure()
-            plt.plot(param_to_score[0, :], param_to_score[1, :])
-            plt.title("{} vs {}".format(param_name, scoring))
-            plt.xlabel(param_name)
-            plt.ylabel(scoring)
-            plt.draw()
-    if save_:
-        f.write("==== Total time {} ====\n".format(time.time()-t))
-    f.close()
-    return best_estimators
 
 
 def load_models(dataset_name, classes):
@@ -166,6 +71,142 @@ def evaluate(train_df, test_df, dataset_name, random_state=None):
         print(score)
 
 
+def get_salient_phrases(clf, vectorizer, n=10):
+    feature_importances_ = clf.feature_importances_
+    feature_importance_ordering = np.argsort(feature_importances_)[::-1]
+    feature_names = np.array(vectorizer.get_feature_names())
+    top_n = feature_names[feature_importance_ordering][:n]
+
+    # weighted_estimators = np.array(list(zip(clf.estimator_weights_, clf.estimators_)))
+    # weight_sorting = np.argsort(weighted_estimators[:, 0])[::-1]
+    # weighted_estimators = weighted_estimators[weight_sorting]
+    # top_n = []
+    # for i in range(n):
+    #     estimator = weighted_estimators[i,1]
+    #     feature_id = np.argmax(estimator.feature_importances_)
+    #     top_n.append(feature_names[feature_id])
+    # for i in top_n:
+    #     print(i)
+    return np.array(top_n)
+
+
+def grid_search(input_df, name, vectorizer, estimators, param_grid,
+                random_state=None, save_=True, verbose=1, cv=10, params_to_plot=[],
+                scoring="accuracy"):
+
+    f = open("adaboost_log.log", "a")
+    even = input_df.y.value_counts().max() == input_df.y.value_counts().min()
+    if save_:
+        f.write("\n==== {} - {} {}====\n".format(str(datetime.datetime.now()),
+                                                 name, input_df.shape, even))
+    best_estimators = []
+    t = time.time()
+    
+    print()
+    print("Grid search using {}...".format(name))
+    print("Param grid: {}".format(param_grid))
+    print("Vectorizer = {}".format(vectorizer))
+    print("Even = {}".format(even))
+    print()
+
+    # input_df = utils.get_vectorized_df(input_df, vectorizer)
+    # print(input_df.shape)
+   
+    for i in input_df.y.unique():
+        print()
+        print("Training classifier for Class {}...".format(i))
+        t0 = time.time()
+        # get dataset for current class
+        df = utils.get_class_based_data(
+            input_df,
+            i,
+            random_state=random_state,
+            include_other_classes=True,
+            limit_size=False,
+            even_distrib=False,
+        )
+        pipe = Pipeline(estimators, memory=None)
+
+        # run grid search
+        gscv = GridSearchCV(
+            pipe,
+            cv=cv,
+            verbose=verbose,
+            iid=False,
+            param_grid=param_grid,
+            scoring=scoring,
+            n_jobs=-1,
+        )
+
+        grid_result = gscv.fit(df.lyrics.values, df.y.values.ravel())
+        # grid_result = gscv.fit(
+        #     df.iloc[:, 0:df.shape[1]-1].values, df.y.values.ravel())
+        feature_size = len(gscv.best_estimator_.named_steps['vectorizer'].get_feature_names())
+        print("Feature size: {}".format(feature_size))
+        print("Best: {} using {}".format(gscv.best_score_, gscv.best_params_))
+        # print top 5 
+        means = grid_result.cv_results_['mean_test_score']
+        stds = grid_result.cv_results_['std_test_score']
+        params = grid_result.cv_results_['params']
+        results = np.array(list(zip(means, stds, params)))
+        results = results[np.argsort(results[:, 0])[::-1]]
+        top_results = []
+        print("Best 5:")
+        for j in range(5):
+            result_str = "{}({}) with: {}".format(
+                results[j, 0],
+                results[j, 1],
+                results[j, 2]
+            )
+            top_results.append(result_str)
+            print(result_str)
+        # get top phrases 
+        top_n = get_salient_phrases(
+            gscv.best_estimator_.named_steps['clf'],
+            gscv.best_estimator_.named_steps['vectorizer'],)
+        print("Top salient phrases: {}".format(top_n))
+        # save results to file
+        if save_:
+            # log
+            f.write("Class: {}\n".format(i))
+            f.write("Even: {}\n".format(even))
+            f.write("Best params: {}\n".format(gscv.best_params_))
+            # f.write("Vectorizer: {}\n".format(vectorizer))
+            f.write("Feature size: {}\n".format(feature_size))
+            f.write("Top salient phrases: {}\n".format(top_n))
+            f.write("Best score: {}\n".format(gscv.best_score_))
+            for result in top_results:
+                f.write(result+"\n")
+            f.write("Time: {}\n\n".format(time.time()-t0))
+            f.flush()
+
+            # save model
+            save_path = "{}/{}_{}.sav".format(
+                const.ADABOOST_MODEL_DIR, name, i)
+            dump(gscv.best_estimator_, save_path)
+
+        best_estimators.append(gscv.best_estimator_)
+
+    for param_name in params_to_plot:
+        param_to_score = utils.get_scoring_to_param(
+            grid_result,
+            param_name
+        )
+        plt.figure()
+        plt.plot(param_to_score[0, :], param_to_score[1, :])
+        plt.title("{} Class {}: {} vs {}".format(
+            name, i, param_name, scoring))
+        plt.xlabel(param_name)
+        plt.ylabel(scoring)
+        plt.draw()
+    if save_:
+        f.write("==== Total time {} ====\n".format(time.time()-t))
+    f.close()
+    return best_estimators
+
+
+
+
 def main(*args):
 
     save_ = const.SAVE_DEFAULT
@@ -176,7 +217,9 @@ def main(*args):
     even_distrib = const.EVEN_DISTRIB_DEFAULT
     verbose = 1
     cv = 10
-    even_distrib_train = False
+    # even_distrib_train = False
+    # load stop words
+    stop_words = utils.get_stop_words()
 
     for arg in args:
         k = arg.split("=")[0]
@@ -197,15 +240,20 @@ def main(*args):
             verbose = int(v)
         elif k == 'cv':
             cv = int(v)
-        elif k == 'even_distrib_train':
-            even_distrib_train = utils.str_to_bool(v)
+        elif k == 'stop_words':
+            if utils.str_to_bool(v) == False:
+                stop_words = None
+        # elif k == 'even_distrib_train':
+        #     even_distrib_train = utils.str_to_bool(v)
+
     print()
     print("-- AdaBoost Config --")
     print("save: {}".format(save_))
     print("even_distrib: {}".format(even_distrib))
-    print("even_distrib_train: {}".format(even_distrib_train))
+    print("stop_words: {}".format(stop_words!=None))
+    # print("even_distrib_train: {}".format(even_distrib_train))
     print("random_state: {}".format(random_state))
-    print("test_size: {}".format(test_size))
+    # print("test_size: {}".format(test_size))
     print("dataset: {}".format(dataset))
     print("mode: {}".format(mode))
     print("verbose: {}".format(verbose))
@@ -217,56 +265,62 @@ def main(*args):
     spotify_df = pd.read_csv(const.CLEAN_SPOTIFY)
     if even_distrib == False:
         spotify_df = pd.read_csv(const.CLEAN_UNEVEN_SPOTIFY)
-    spotify_train_df, spotify_test_df = utils.get_distrib_split(
-        spotify_df,
-        random_state=random_state,
-        test_size=test_size,
-    )
+    # spotify_train_df, spotify_test_df = utils.get_distrib_split(
+    #     spotify_df,
+    #     random_state=random_state,
+    #     test_size=test_size,
+    # )
 
     deezer_df = pd.read_csv(const.CLEAN_DEEZER)
     if even_distrib == False:
-        spotify_df = pd.read_csv(const.CLEAN_UNEVEN_SPOTIFY)
-    deezer_train_df, deezer_test_df = utils.get_distrib_split(
-        deezer_df,
-        random_state=random_state,
-        test_size=test_size,
-    )
+        deezer_df = pd.read_csv(const.CLEAN_UNEVEN_DEEZER)
+    # deezer_train_df, deezer_test_df = utils.get_distrib_split(
+    #     deezer_df,
+    #     random_state=random_state,
+    #     test_size=test_size,
+    # )
 
     if const.GSCV_MODE in mode:
         stump = DecisionTreeClassifier(
             max_depth=1,
+            criterion='gini',
         )
         vectorizer = CountVectorizer(
-            # stop_words=stop_words,
+            stop_words=stop_words,
             ngram_range=(1, 1),
             min_df=2,
             # max_features=100,
-            max_df=.9,
+            max_df=1.0,
+            binary=True,
         )
         estimators = [
-            ('vectorizer', CountVectorizer(stop_words=stop_words)),
-            ('adaboost', AdaBoostClassifier(
-                base_estimator=stump, random_state=random_state)),
+            ('vectorizer', vectorizer),
+            ('clf', AdaBoostClassifier(
+                base_estimator=stump,
+                random_state=random_state)
+            ),
         ]
         param_grid = {
-            'vectorizer__min_df': [2, 3, 4, 5],
-            'vectorizer__max_df': [.9, 0.7, 1.0],
-            # 'vectorizer__max_features': [None],
-            # 'vectorizer__stop_words': [None, stop_words],
-            'adaboost__n_estimators': [4000],
-            'adaboost__learning_rate': [0.7, 1.0],
+                'vectorizer__min_df': [3, 5, 10],
+                'vectorizer__max_df': [0.5, .25, 0.1],
+                # 'vectorizer__ngram_range': [(1,1)],
+                # 'vectorizer__max_features': [2500],
+                # 'vectorizer__stop_words': [None, stop_words],
+                'clf__n_estimators': [100, 750, 1000, 1500, 2000],
+                'clf__learning_rate': [0.45, 0.1, .9, 1.0],
+                'clf__algorithm': ['SAMME'],
+                # 'clf__base_estimator__max_depth':[1, 2],
         }
         params_to_plot = [
             # 'vectorizer__max_df',
             # 'vectorizer__min_df',
-            # 'adaboost__n_estimators',
-            # 'adaboost__learning_rate',
+            # 'clf__n_estimators',
+            # 'clf__learning_rate',
         ]
         # spotify grid search
         if const.SPOTIFY in dataset:
-
             best_estimators = grid_search(
-                spotify_train_df,
+                spotify_df,
                 const.SPOTIFY,
                 vectorizer,
                 estimators,
@@ -279,13 +333,14 @@ def main(*args):
             )
 
             # test: create decision tree visualization image
-            # adaboost = best_estimators[0].named_steps['adaboost']
-            # visualize_tree(adaboost.estimators_[0])
+            # clf = best_estimators[0].named_steps['clf']
+            # # visualize_tree(clf.estimators_[0])
 
         # deezer grid search
         if const.DEEZER in dataset:
+            
             grid_search(
-                deezer_train_df,
+                deezer_df,
                 const.DEEZER,
                 vectorizer,
                 estimators,
@@ -297,22 +352,22 @@ def main(*args):
                 params_to_plot=params_to_plot,
             )
 
-    if const.EVAL_MODE in mode:
-        if const.SPOTIFY in dataset:
-            # evaluation on test data
-            evaluate(
-                spotify_train_df,
-                spotify_test_df,
-                const.SPOTIFY,
-                random_state=random_state,
-            )
-        if const.DEEZER in dataset:
-            evaluate(
-                deezer_train_df,
-                deezer_test_df,
-                const.DEEZER,
-                random_state=random_state,
-            )
+    # if const.EVAL_MODE in mode:
+    #     if const.SPOTIFY in dataset:
+    #         # evaluation on test data
+    #         evaluate(
+    #             spotify_train_df,
+    #             spotify_test_df,
+    #             const.SPOTIFY,
+    #             random_state=random_state,
+    #         )
+    #     if const.DEEZER in dataset:
+    #         evaluate(
+    #             deezer_train_df,
+    #             deezer_test_df,
+    #             const.DEEZER,
+    #             random_state=random_state,
+    #         )
     plt.show()
 
 

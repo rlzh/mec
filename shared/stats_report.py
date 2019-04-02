@@ -21,14 +21,7 @@ from utils import get_stop_words
 stop_words = get_stop_words()
 
 
-def gen_word_cloud(top_n):
-    plt.figure()
-    wordcloud = WordCloud().generate_from_frequencies(frequencies=top_n)
-    plt.imshow(wordcloud, interpolation="bilinear")
-    plt.axis("off")
-
-
-def gen_hist(title, hist1, label1, hist2=np.array([None]), label2="", a1=1, a2=0.25, bins=100):
+def plot_hist(title, hist1, label1, hist2=np.array([None]), label2="", a1=1, a2=0.25, bins=100):
     fig = plt.figure()
     hist = plt.hist(hist1, alpha=a1, bins=100, label=label1)
     plt.title(title)
@@ -37,7 +30,7 @@ def gen_hist(title, hist1, label1, hist2=np.array([None]), label2="", a1=1, a2=0
         plt.legend()
 
 
-def gen_val_arousal_scatter(title, valence, arousal):
+def plot_val_arousal_scatter(title, valence, arousal):
     fig = plt.figure()
     scatter = plt.scatter(valence, arousal, alpha=0.6)
     plt.title(title)
@@ -113,24 +106,47 @@ def main(*args):
     deezer_class_distrib = get_emotion_counts(clean_deezer_df, print_=print_)
 
     # word count hist
-    gen_hist("Spotify vs Deezer: Dataset Word Count",
-             clean_spotify_wc, const.SPOTIFY, clean_deezer_wc, const.DEEZER, a1=0.4, a2=0.4)
+    plot_hist("Spotify vs Deezer: Dataset Word Count",
+              clean_spotify_wc, const.SPOTIFY, clean_deezer_wc, const.DEEZER, a1=0.4, a2=0.4)
 
     # unique word count hist
-    gen_hist("Spotify vs Deezer: Dataset Unique Words Count",
-             clean_spotify_uc, const.SPOTIFY, clean_deezer_uc, const.DEEZER, a1=0.4, a2=0.4)
+    plot_hist("Spotify vs Deezer: Dataset Unique Words Count",
+              clean_spotify_uc, const.SPOTIFY, clean_deezer_uc, const.DEEZER, a1=0.4, a2=0.4)
 
     # class distrib scatter plot
-    gen_val_arousal_scatter(
+    plot_val_arousal_scatter(
         "Spotify: Class Distribution",
         clean_spotify_df.valence.values,
         clean_spotify_df.arousal.values
     )
-    gen_val_arousal_scatter(
+    plot_val_arousal_scatter(
         "Deezer: Class Distribution",
         clean_deezer_df.valence.values,
         clean_deezer_df.arousal.values
     )
+
+    datasets = [
+        (const.SPOTIFY, clean_spotify_df),
+        (const.DEEZER, clean_deezer_df),
+    ]
+    for name, dataset in datasets:
+        for i in dataset.y.unique():
+            class_df = utils.get_class_based_data(
+                dataset,
+                i,
+                random_state=const.RANDOM_STATE_DEFAULT,
+                include_other_classes=True,
+                even_distrib=False,
+                limit_size=False,
+            )
+            print("{} Class {} data shape: {}".format(name, i, class_df.shape))
+            print("{} Class {} data mean valence-arousal: {}".format(
+                name, i, (class_df.valence.mean(), class_df.arousal.mean())))
+            plot_val_arousal_scatter(
+                "{}: Class {} Data Distribution".format(name, i),
+                class_df.valence.values,
+                class_df.arousal.values
+            )
 
     # class distrib hist
     plt.figure()
