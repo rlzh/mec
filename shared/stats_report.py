@@ -138,6 +138,7 @@ def main(*args):
                 include_other_classes=True,
                 even_distrib=False,
                 limit_size=False,
+                print_=True
             )
             print("{} Class {} data shape: {}".format(name, i, class_df.shape))
             print("{} Class {} data mean valence-arousal: {}".format(
