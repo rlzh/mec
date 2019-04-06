@@ -18,8 +18,8 @@ def str_to_bool(s):
 def get_stop_words():
     ''' Builds and returns stopswords list from nltk and local text file '''
     stop_words = set()
-    # nltk.download('stopwords')
-    # stop_words = set(stopwords.words('english'))
+    nltk.download('stopwords')
+    stop_words = set(stopwords.words('english'))
     f = open("stopwords.txt", 'r')
     for l in f:
         if len(l.strip()) > 0:
@@ -167,14 +167,15 @@ def get_shared_words(lyrics):
 
 
 def get_vectorized_df(df, vectorizer):
+    # vectorizer.binary = True
     vectorized = vectorizer.fit_transform(df.lyrics.values).toarray()
-    vectorized = vectorized > 0
-    vectorized = vectorized.astype(int)
+    # vectorized = vectorized > 0
+    # vectorized = vectorized.astype(int)
     vectorized = pd.DataFrame(vectorized)
     return pd.concat([vectorized, df.y], axis=1)
 
 
-def get_class_based_data(df, class_id, random_state=None, include_other_classes=False, limit_size=False, even_distrib=False):
+def get_class_based_data(df, class_id, random_state=None, include_other_classes=False, limit_size=False, even_distrib=False, print_=False):
     '''
     Random generate equally sized dataset for binary classifiers of specified class
     by limiting the generated dataset size to minimum across all classes in dataset.
@@ -188,30 +189,64 @@ def get_class_based_data(df, class_id, random_state=None, include_other_classes=
         max_size = min(len(neg_df), len(pos_df))
 
     if include_other_classes:
-        # NOTE: This section is unused at the moment!
-        if even_distrib:
-            # even distribution of negative class data between negative classes
-            required_size = int(max_size / 3)
-            min_size = df['y'].value_counts().min()
-            if required_size > min_size:
-                # not all classes can meet required size - need to update max_size, required_size
-                required_size = min_size
+        # unused
+        # if even_distrib:
+        #     # even distribution of negative class data between negative classes
+        #     required_size = int(max_size / 3)
+        #     min_size = df['y'].value_counts().min()
+        #     if required_size > min_size:
+        #         # not all classes can meet required size - need to update max_size, required_size
+        #         required_size = min_size
 
-            max_size = required_size * 3
-            neg_df = pd.DataFrame([], columns=df.columns)
-            for i in df.y.unique():
-                if i != class_id:
-                    rows = df.loc[df['y'] == i].sample(
-                        n=required_size,
-                        random_state=random_state
-                    )
-                    neg_df = pd.concat(
-                        [neg_df, rows],
-                        ignore_index=True
-                    )
-        else:
-            neg_df = neg_df.sample(n=max_size, random_state=random_state)
+        #     max_size = required_size * 3
+        #     neg_df = pd.DataFrame([], columns=df.columns)
+        #     for i in df.y.unique():
+        #         if i != class_id:
+        #             rows = df.loc[df['y'] == i].sample(
+        #                 n=required_size,
+        #                 random_state=random_state
+        #             )
+        #             neg_df = pd.concat(
+        #                 [neg_df, rows],
+        #                 ignore_index=True
+        #             )
+        # else:
+            # unused:
+            # if 'valence' in neg_df.columns:
+            #     # select furthest
+            #     dist = []
+            #     cross_over_val = 0.0
+            #     if neg_df.valence.min() > 0.0:
+            #         cross_over_val = 0.5
+            #     for i in range(len(neg_df)):
+            #         v = neg_df.valence.values[i]
+            #         a = neg_df.arousal.values[i]
+            #         dist.append(((v - cross_over_val)**2 +
+            #                 (a - cross_over_val) ** 2)**.5)
+            #     dist = np.array(dist)
+            #     dist_order = np.argsort(dist)[::-1][:max_size]
+            #     furthest = neg_df.values[dist_order]
+            #     neg_df = pd.DataFrame(furthest, columns=neg_df.columns)
+            # else:
+        neg_df = neg_df.sample(n=max_size, random_state=random_state)
 
+    # unused
+    # if 'valence' in pos_df.columns:
+    #     # select furthest
+    #     dist = []
+    #     cross_over_val = 0.0
+    #     if pos_df.valence.min() > 0.0:
+    #         cross_over_val = 0.5
+    #     for i in range(len(pos_df)):
+    #         v = pos_df.valence.values[i]
+    #         a = pos_df.arousal.values[i]
+    #         dist.append(((v - cross_over_val)**2 +
+    #                     (a - cross_over_val) ** 2)**.5)
+    #     dist = np.array(dist)
+    #     dist_order = np.argsort(dist)[::-1][:max_size]
+    #     furthest = pos_df.values[dist_order]
+    #     pos_df = pd.DataFrame(furthest, columns=pos_df.columns)
+    # else:
     pos_df = pos_df.sample(
         n=max_size,
         random_state=random_state
@@ -219,13 +254,19 @@ def get_class_based_data(df, class_id, random_state=None, include_other_classes=
     pos_df['y'] = np.full(pos_df.y.shape, 1)
     result = pos_df
     if include_other_classes:
-        # print(neg_df.y.value_counts())
+        if print_:
+            print(neg_df.y.value_counts())
         neg_df['y'] = np.full(neg_df.y.shape, -1)
         result = pd.concat([pos_df, neg_df])
     result.columns = df.columns
+    # shuffle result
     result = result.sample(frac=1.0, random_state=random_state)
     result.reset_index(drop=True, inplace=True)
     return result
+
+
+def calc_euclidean_dist(p1, p2):
+    return ((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)**.5
 
 
 def get_distrib_split(df, test_size=0.1, random_state=None):

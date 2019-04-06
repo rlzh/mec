@@ -95,11 +95,34 @@ def angle_between(p1, p2):
     return np.rad2deg((ang1 - ang2) % (2 * np.pi))
 
 
-def gen_labels(df, cross_over_val=0, thresh=0, class_size=-1, class_distrib={}, class_per_quadrant=1):
+def rotate_via_numpy(p, degrees):
+    """Use numpy to build a rotation matrix and take the dot product."""
+    x, y = p[0], p[1]
+    radians = np.deg2rad(degrees)
+    c, s = np.cos(radians), np.sin(radians)
+    j = np.matrix([[c, s], [-s, c]])
+    m = np.dot(j, [x, y])
+    return float(m.T[0]), float(m.T[1])
+
+
+def gen_labels(df, cross_over_val=0, thresh=0, data_size=-1, class_distrib={}, class_per_quadrant=1, dist_mode='furthest_from_origin'):
     ''' Dataset labelling '''
     # create emotion class label (i.e. Y) based on arousal & valence
     y = np.empty(shape=(df.shape[0], 2))
-    va_list = pd.concat([df.valence, df.arousal], axis=1).values
+
+    va_list = pd.concat([df.valence, df.arousal], axis=1)
+    va_list.columns = ['valence', 'arousal']
+    va_list = va_list.astype(float)
+    print("valence range: [{},{}]".format(
+        va_list.valence.min(), va_list.valence.max()))
+    print("arousal range: [{},{}]".format(
+        va_list.arousal.min(), va_list.arousal.max()))
+    reference_point = (cross_over_val, cross_over_val)
+    if dist_mode == 'furthest_from_mean':
+        reference_point = (va_list.valence.mean(), va_list.arousal.mean())
+    print("mean valence-arousal: {}".format((va_list.valence.mean(),
+                                             va_list.arousal.mean())))
+
     # # valence and arousal range may not be in [-1,1] so use z-score to normalize here
     # va_list = StandardScaler().fit_transform(va_list)
     # Quad 1: V > cross_over_val & A >= cross_over_val -> Happy
@@ -108,46 +131,64 @@ def gen_labels(df, cross_over_val=0, thresh=0, class_size=-1, class_distrib={}, 
     # Quad 4: V >= cross_over_val & A < cross_over_val -> Relaxed
     remove_indices = []
     print("Labelling songs...")
-    p0 = (1, 0)
+    p0 = (va_list.valence.values.max(), 0)
     divisor = 90 / class_per_quadrant
-    for i in pbar.progressbar(range(va_list.shape[0])):
-        v = float(va_list[i, 0])
-        a = float(va_list[i, 1])
-        alpha = angle_between((v-cross_over_val, a-cross_over_val), p0)
 
-        if v > cross_over_val and a >= cross_over_val:
-            y[i, 0] = 1
-        elif v <= cross_over_val and a > cross_over_val:
-            y[i, 0] = 2
-        elif v < cross_over_val and a <= cross_over_val:
-            y[i, 0] = 3
-        elif v >= cross_over_val and a < cross_over_val:
-            y[i, 0] = 4
+    for i in pbar.progressbar(range(va_list.shape[0])):
+        v = float(va_list.iloc[i, 0])
+        a = float(va_list.iloc[i, 1])
+        alpha = angle_between((v - cross_over_val, a - cross_over_val), p0)
+
+        if dist_mode == 'closest_to_extremes':
+            if v > cross_over_val and a >= cross_over_val:
+                reference_point = (va_list.valence.max(),
+                                   va_list.arousal.max())
+            elif v <= cross_over_val and a > cross_over_val:
+                reference_point = (va_list.valence.min(),
+                                   va_list.arousal.max())
+            elif v < cross_over_val and a <= cross_over_val:
+                reference_point = (va_list.valence.min(),
+                                   va_list.arousal.min())
+            elif v >= cross_over_val and a < cross_over_val:
+                reference_point = (va_list.valence.max(),
+                                   va_list.arousal.min())
 
         # determine class label based on angle between axis
         y[i, 0] = int(alpha / divisor) + 1
 
         # remove if euclidean distance below threshold
-        y[i, 1] = ((v - cross_over_val)**2 + (a - cross_over_val)**2)**.5
-        if y[i, 1] < thresh:
-            remove_indices.append(i)
+        y[i, 1] = ((v - reference_point[0])**2 +
+                   (a - reference_point[1])**2)**.5
+        if dist_mode == 'closest_to_extremes':
+            if y[i, 1] > thresh:
+                remove_indices.append(i)
+        else:
+            if y[i, 1] < thresh:
+                remove_indices.append(i)
 
     y_df = pd.DataFrame(y, columns=['y', 'dist'])
     df = pd.concat([df, y_df], axis=1)
+    ascending = True if dist_mode == 'closest_to_extremes' else False
     print("Finished labelling songs! {} songs removed".format(len(remove_indices)))
     df.drop(index=remove_indices, inplace=True)
     df.reset_index(drop=True, inplace=True)
-    if class_size > 0:
-        class_size = min(df.y.value_counts().max(), class_size)
+    if dist_mode == 'furthest_from_mean':
+        result = pd.DataFrame([], columns=df.columns)
+        df = df.sort_values(by='dist', ascending=False)
+        df.reset_index(drop=True, inplace=True)
+        df = df.iloc[:data_size]
+        df.reset_index(drop=True, inplace=True)
+    elif data_size > 0:
+        data_size = min(df.y.value_counts().max(), data_size)
         print("Filtering songs based on class size={} and distrib={}...".format(
-            class_size, class_distrib))
+            data_size, class_distrib))
         result = pd.DataFrame([], columns=df.columns)
         for i in df.y.unique():
             pos_df = df.loc[df['y'] == i]
             # sort songs by distance from origin (decsending)
-            pos_df = pos_df.sort_values(by='dist', ascending=False)
+            pos_df = pos_df.sort_values(by='dist', ascending=ascending)
             distrib = 1.0 if i not in class_distrib else class_distrib[i]
-            required_size = int(class_size * distrib)
+            required_size = int(data_size * distrib)
             if len(pos_df) > required_size:
                 rows = pos_df.iloc[:required_size]
                 result = pd.concat([result, rows], ignore_index=True)
@@ -157,7 +198,7 @@ def gen_labels(df, cross_over_val=0, thresh=0, class_size=-1, class_distrib={}, 
             len(df) - len(remove_indices)))
         df = result
     df = df.drop(['dist'], axis=1)
-    # df = df.sample(frac=1)
+
     print("Class Distribution")
     print(df.y.value_counts())
     print("Labelled shape: {}".format(df.shape))
@@ -167,33 +208,37 @@ def gen_labels(df, cross_over_val=0, thresh=0, class_size=-1, class_distrib={}, 
 
 def main(*args):
 
-    dry_run = False
-    class_size = -1
+    save = False
+    data_size = -1
     spotify_thresh = 0
     deezer_thresh = 0
     class_per_quad = 1
+    dist_mode = 'furthest_from_mean'
 
     for arg in args:
         k = arg.split("=")[0]
         v = arg.split("=")[1]
-        if k == 'dry_run':
-            dry_run = str_to_bool(v)
-        elif k == 'class_size':
-            class_size = int(v)
+        if k == 'save':
+            save = str_to_bool(v)
+        elif k == 'data_size':
+            data_size = int(v)
         elif k == 'spotify_thresh':
             spotify_thresh = float(v)
         elif k == 'deezer_thresh':
             deezer_thresh = float(v)
         elif k == 'class_per_quad':
             class_per_quad = int(v)
+        elif k == 'dist_mode':
+            dist_mode = str(v)
 
     print()
     print("--- Clean config ---")
-    print("dry_run: {}".format(dry_run))
-    print("class_size: {}".format(class_size))
+    print("save: {}".format(save))
+    print("data_size: {}".format(data_size))
     print("spotify_thresh: {}".format(spotify_thresh))
     print("deezer_thresh: {}".format(deezer_thresh))
     print("class_per_quad: {}".format(class_per_quad))
+    print("dist_mode: {}".format(dist_mode))
     print("--------------------")
     print()
 
@@ -203,18 +248,19 @@ def main(*args):
         cleaned_df,
         cross_over_val=0.5,
         thresh=spotify_thresh,
-        class_size=class_size,
+        data_size=data_size,
         class_per_quadrant=class_per_quad,
+        dist_mode=dist_mode,
     )
     check_dup(df, "Error: Duplicates!!!!!!!!!!!!!!!!!")
 
-    if dry_run == False:
+    if save:
         # save as csv (don't include indices in .csv)
-        if class_size > 0:
-            print("Saving result to {}...".format(const.CLEAN_SPOTIFY))
+        if data_size > 0 and dist_mode != 'furthest_from_mean':
+            print("Saving result to {}...\n".format(const.CLEAN_SPOTIFY))
             df.to_csv(const.CLEAN_SPOTIFY, index=False)
         else:
-            print("Saving result to {}...".format(const.CLEAN_UNEVEN_SPOTIFY))
+            print("Saving result to {}...\n".format(const.CLEAN_UNEVEN_SPOTIFY))
             df.to_csv(const.CLEAN_UNEVEN_SPOTIFY, index=False)
 
     # DEEZER DATASET
@@ -227,13 +273,14 @@ def main(*args):
         cleaned_df,
         cross_over_val=0,
         thresh=deezer_thresh,
-        class_size=class_size,
+        data_size=data_size,
         class_per_quadrant=class_per_quad,
+        dist_mode=dist_mode,
     )
     check_dup(df, "Error: Duplicates!!!!!!!!!!!!!!!!!")
-    if dry_run == False:
+    if save:
         # save as csv (don't include indices in .csv)
-        if class_size > 0:
+        if data_size > 0 and dist_mode != 'furthest_from_mean':
             print("Saving result to {}...".format(const.CLEAN_DEEZER))
             df.to_csv(const.CLEAN_DEEZER, index=False)
         else:

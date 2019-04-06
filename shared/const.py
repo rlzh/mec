@@ -6,8 +6,8 @@ from pathlib import Path
 # base dir abs path
 BASE_DIR = str(Path(os.path.abspath(__file__)).parent.parent)
 
-DEEZER = "deezer"
-SPOTIFY = "spotify"
+DEEZER = "Deezer"
+SPOTIFY = "Spotify"
 
 DATA_DIR = BASE_DIR+"/data"
 # original datasets

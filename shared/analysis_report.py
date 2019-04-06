@@ -36,7 +36,7 @@ def gen_word_cloud_grid(name, df, vectorizer, n=10, order=-1, random_state=None,
             df,
             i,
             random_state=random_state,
-            include_other_classes=False,
+            include_other_classes=True,
             limit_size=False,
         )
 
@@ -52,7 +52,7 @@ def gen_word_cloud_grid(name, df, vectorizer, n=10, order=-1, random_state=None,
         )
         wordcloud = WordCloud().generate_from_frequencies(frequencies=top_n)
         ax = axs[0, 0]
-        
+
         if i == 1:
             ax = axs[0, 1]
             ax.set_title('Happy')
@@ -119,10 +119,11 @@ def main(*args):
     cos_sim = False
     even_distrib = const.EVEN_DISTRIB_DEFAULT
     plt.rcParams.update({'font.size': const.FONT_SIZE_DEFAULT})
-    pre_vec = True
-    limit_size = True
+    pre_vec = False
+    limit_size = False
     min_df = 1
     max_df = 1.0
+    param_compare = False
 
     # print command line arguments
     for arg in args:
@@ -159,6 +160,10 @@ def main(*args):
             min_df = int(v)
         elif k == 'max_df':
             max_df = float(v)
+            if max_df > 1:
+                max_df = int(max_df)
+        elif k == 'param_compare':
+            param_compare = utils.str_to_bool(v)
         else:
             print("Unknown param: {}".format(k))
 
@@ -173,6 +178,7 @@ def main(*args):
         print("wordcloud_n: {}".format(wordcloud_n))
         print("order: {}".format(order))
         print("cos_sim: {}".format(cos_sim))
+        print("param_compare: {}".format(param_compare))
         print("pre_vec: {}".format(pre_vec))
         print("limit_size: {}".format(limit_size))
         print("min_df: {}".format(min_df))
@@ -191,18 +197,25 @@ def main(*args):
     if even_distrib == False:
         clean_deezer_df = pd.read_csv(const.CLEAN_UNEVEN_DEEZER)
 
+    datasets = [
+        (const.SPOTIFY, clean_spotify_df),
+        (const.DEEZER, clean_deezer_df),
+    ]
+    vectorizer = CountVectorizer(
+        stop_words=stop_words,
+        ngram_range=(1, 1),
+        min_df=min_df,
+        max_df=max_df,
+        max_features=max_features,
+        binary=True,
+    )
+
     # word clouds
     if wordcloud_:
-        count = CountVectorizer(
-            stop_words=stop_words,
-            max_features=max_features,
-            ngram_range=(1, 1),
-        )
-
         top_n = gen_word_cloud_grid(
             const.SPOTIFY,
             clean_spotify_df,
-            vectorizer=count,
+            vectorizer=vectorizer,
             n=wordcloud_n,
             order=order,
             random_state=random_state,
@@ -213,7 +226,7 @@ def main(*args):
         top_n = gen_word_cloud_grid(
             const.DEEZER,
             clean_deezer_df,
-            vectorizer=count,
+            vectorizer=vectorizer,
             n=wordcloud_n,
             order=order,
             random_state=random_state,
@@ -230,18 +243,7 @@ def main(*args):
             print()
 
     # cosine similarity
-    if cos_sim:
-        vectorizer = CountVectorizer(
-            stop_words=stop_words,
-            ngram_range=(1, 1),
-            min_df=min_df,
-            max_df=max_df,
-            max_features=max_features
-        )
-        datasets = [
-            (const.SPOTIFY, clean_spotify_df),
-            (const.DEEZER, clean_deezer_df),
-        ]
+    if cos_sim: 
         for name, dataset in datasets:
             if pre_vec:
                 dataset = utils.get_vectorized_df(dataset, vectorizer)
@@ -253,8 +255,9 @@ def main(*args):
                     i,
                     random_state=random_state,
                     include_other_classes=True,
-                    even_distrib=True,
+                    even_distrib=False,
                     limit_size=limit_size,
+                    print_=True,
                 )
                 if pre_vec == False:
                     class_df = utils.get_vectorized_df(class_df, vectorizer)
@@ -264,14 +267,78 @@ def main(*args):
                 neg_df = utils.get_class_based_data(class_df, -1.0)
                 neg_df.pop('y')
                 ave_neg = utils.get_average_cos_sim(neg_df.values)
+                ave_between = utils.get_average_cos_sim(
+                    pos_df.values, neg_df.values)
                 print("class {}".format(i))
                 print("data shape: {}".format(class_df.shape))
                 print("average positive cosine similarity: {}".format(ave_pos))
                 print("average negative cosine similarity: {}".format(ave_neg))
-                ave_between = utils.get_average_cos_sim(pos_df.values, neg_df.values)
                 print("average between cosine similarity: {}".format(ave_between))
+                print("(pos - between )+ (neg - between) percentage = {} ".format(
+                    (ave_pos - ave_between) / ave_pos + (ave_neg - ave_between)  / ave_neg
+                ))
                 print()
-    
+
+    if param_compare:
+        # min_df vs pos_sim, neg_sim, between_sim
+        params_grid = {
+            'min_df': [i for i in range(1, 15)],
+            'max_df': np.arange(0.1, 1.0, 0.1),
+        }
+
+        for name, dataset in datasets:    
+            for i in dataset.y.unique():
+                df = utils.get_class_based_data(
+                    dataset,
+                    i,
+                    random_state=random_state,
+                    include_other_classes=True,
+                    even_distrib=False,
+                    limit_size=limit_size,
+                )
+                for p, v in params_grid.items():
+                    print("Comparing cosine similarity vs {} for {} Class {} data...".format(p, name, i))
+                    vectorizer = CountVectorizer(
+                        stop_words=stop_words,
+                        ngram_range=(1, 1),
+                        min_df=min_df,
+                        max_df=max_df,
+                        max_features=max_features,
+                        binary=True,
+                    )
+                    pos_sim = []
+                    neg_sim = []
+                    between_sim = []
+                    diff = []
+                    for j in range(len(v)):
+                        vectorizer.set_params(**{p: v[j]})
+                        class_df = utils.get_vectorized_df(df, vectorizer)
+                        pos_df = utils.get_class_based_data(class_df, 1)
+                        pos_df.pop('y')
+                        ave_pos = utils.get_average_cos_sim(pos_df.values)
+                        neg_df = utils.get_class_based_data(class_df, -1.0)
+                        neg_df.pop('y')
+                        ave_neg = utils.get_average_cos_sim(neg_df.values)
+                        ave_between = utils.get_average_cos_sim(
+                            pos_df.values, neg_df.values)
+                        pos_sim.append(ave_pos)
+                        neg_sim.append(ave_neg)
+                        between_sim.append(ave_between)
+                        diff.append((ave_pos - ave_between)/ave_pos + (ave_neg - ave_between)/ave_neg)
+                    
+                    plt.figure()
+                    plt.title("{} Class {}: {} vs cosine similarity".format(name,i, p))
+                    pos_sim = np.array(list(zip(v, pos_sim)))
+                    neg_sim = np.array(list(zip(v, neg_sim)))
+                    between_sim = np.array(list(zip(v, between_sim)))
+                    diff = np.array(list(zip(v, diff)))
+                    plt.plot(pos_sim[:, 0], pos_sim[:, 1], label='pos sim')
+                    plt.plot(neg_sim[:, 0], neg_sim[:, 1], label='neg sim')
+                    plt.plot(between_sim[:, 0], between_sim[:, 1], label='between sim')
+                    plt.plot(diff[:, 0], diff[:, 1], label='sim difference (%)')
+                    plt.xlabel(p)
+                    plt.legend()            
+
     # grid search eval
     if plot:
         plt.draw()
