@@ -175,7 +175,7 @@ def get_vectorized_df(df, vectorizer):
     return pd.concat([vectorized, df.y], axis=1)
 
 
-def get_class_based_data(df, class_id, random_state=None, include_other_classes=False, limit_size=False, even_distrib=False):
+def get_class_based_data(df, class_id, random_state=None, include_other_classes=False, limit_size=False, even_distrib=False, print_=False):
     '''
     Random generate equally sized dataset for binary classifiers of specified class
     by limiting the generated dataset size to minimum across all classes in dataset.
@@ -254,7 +254,8 @@ def get_class_based_data(df, class_id, random_state=None, include_other_classes=
     pos_df['y'] = np.full(pos_df.y.shape, 1)
     result = pos_df
     if include_other_classes:
-        print(neg_df.y.value_counts())
+        if print_:
+            print(neg_df.y.value_counts())
         neg_df['y'] = np.full(neg_df.y.shape, -1)
         result = pd.concat([pos_df, neg_df])
     result.columns = df.columns

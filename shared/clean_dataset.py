@@ -256,7 +256,7 @@ def main(*args):
 
     if save:
         # save as csv (don't include indices in .csv)
-        if data_size > 0:
+        if data_size > 0 and dist_mode != 'furthest_from_mean':
             print("Saving result to {}...\n".format(const.CLEAN_SPOTIFY))
             df.to_csv(const.CLEAN_SPOTIFY, index=False)
         else:
@@ -280,7 +280,7 @@ def main(*args):
     check_dup(df, "Error: Duplicates!!!!!!!!!!!!!!!!!")
     if save:
         # save as csv (don't include indices in .csv)
-        if data_size > 0:
+        if data_size > 0 and dist_mode != 'furthest_from_mean':
             print("Saving result to {}...".format(const.CLEAN_DEEZER))
             df.to_csv(const.CLEAN_DEEZER, index=False)
         else:
