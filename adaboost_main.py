@@ -303,9 +303,9 @@ def main(*args):
         param_grid = {
                 'vectorizer__min_df': [3, 5, 10],
                 'vectorizer__max_df': [0.5, .25, 0.1],
-                # 'vectorizer__ngram_range': [(1,1)],
+                'vectorizer__ngram_range': [(1,1)],
                 # 'vectorizer__max_features': [2500],
-                # 'vectorizer__stop_words': [None, stop_words],
+                'vectorizer__stop_words': [None, stop_words],
                 'clf__n_estimators': [100, 750, 1000, 1500, 2000],
                 'clf__learning_rate': [0.45, 0.1, .9, 1.0],
                 'clf__algorithm': ['SAMME'],
