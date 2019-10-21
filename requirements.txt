@@ -20,7 +20,7 @@ lazy-object-proxy==1.3.1
 -e git+https://github.com/johnwmillr/LyricsGenius.git@ab46a32578ab74b4fa4125e6b2a14951ee485969#egg=lyricsgenius
 matplotlib==3.0.2
 mccabe==0.6.1
-nltk==3.4
+nltk==3.4.5
 numexpr==2.6.9
 numpy==1.15.4
 pandas==0.23.4
